@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	
+	"github.com/sirupsen/logrus"
+	
 	"devops-agent/internal/resources"
 )
 
@@ -22,7 +24,10 @@ func getDefaultSystemPrompt() string {
 type LLM interface {
 	// Chat sends a series of messages to the LLM and returns the assistant's reply.
 	// Implementations should handle the context of the conversation.
-	Chat(messages []Message) (Message, error)
+	Chat(messages []Message) error
+	
+	// SetLogger sets the logger for the LLM instance
+	SetLogger(logger *logrus.Logger)
 }
 
 // MessageRole represents the role of a message sender in a conversation.
@@ -68,15 +73,26 @@ type LLMConfig struct {
 }
 
 // NewLLMProvider is a factory function that returns an LLM interface based on the provider type.
-func NewLLMProvider(config LLMConfig) (LLM, error) {
+func NewLLMProvider(config LLMConfig, logger *logrus.Logger) (LLM, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("%w: APIKey is required in LLMConfig", ErrConfiguration)
 	}
 
+	var llmInstance LLM
+	var err error
+	
 	switch config.Provider {
 	case GeminiProvider:
-		return NewGeminiLLM(config)
+		llmInstance, err = NewGeminiLLM(config)
 	default:
 		return nil, fmt.Errorf("%w: unsupported LLM provider: %s", ErrConfiguration, config.Provider)
 	}
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	// Set the logger in the LLM instance
+	llmInstance.SetLogger(logger)
+	return llmInstance, nil
 }

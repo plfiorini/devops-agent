@@ -6,18 +6,34 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 
 	"devops-agent/internal/config"
 	"devops-agent/internal/llm"
 )
 
 func main() {
+	// Initialize logrus
+	log := logrus.New()
+	log.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+
 	// Define command-line flags
 	configPath := flag.String("config", "config.yaml", "Path to the configuration file")
+	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error, fatal, panic)")
 	flag.Parse()
+
+	// Set log level from flag
+	level, err := logrus.ParseLevel(*logLevel)
+	if err != nil {
+		log.Warnf("Invalid log level '%s', defaulting to 'info'", *logLevel)
+		level = logrus.InfoLevel
+	}
+	log.SetLevel(level)
 
 	// Initialize the application
 	fmt.Println("DevOps AI Agent")
@@ -33,7 +49,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Create the LLM client using the factory
-	llmClient, err := llm.NewLLMProvider(appConfig.LLM) // Use loaded config
+	llmClient, err := llm.NewLLMProvider(appConfig.LLM, log)
 	if err != nil {
 		log.Fatalf("Error creating LLM provider (%s): %v", appConfig.LLM.Provider, err)
 	}
@@ -57,6 +73,7 @@ func main() {
 
 		lowerInput := strings.ToLower(input)
 		if lowerInput == "exit" || lowerInput == "quit" {
+			fmt.Println("Exiting application")
 			break
 		}
 
@@ -64,12 +81,12 @@ func main() {
 		messages := []llm.Message{
 			{Role: "user", Content: input},
 		}
-		chatResponse, err := llmClient.Chat(messages)
+		err = llmClient.Chat(messages)
 		if err == nil {
 			continue
 		} else {
-			log.Fatalf("Error in chat with %s: %v", appConfig.LLM.Provider, err)
+			log.Errorf("Error in chat with %s: %v", appConfig.LLM.Provider, err)
+			fmt.Println("An error occurred while processing your request. Please try again.")
 		}
-		fmt.Printf("%s Chat Response (Role: %s):\n%s\n", appConfig.LLM.Provider, chatResponse.Role, chatResponse.Content)
 	}
 }

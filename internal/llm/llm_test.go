@@ -4,16 +4,21 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewLLMProvider(t *testing.T) {
+	// Create a test logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel) // Suppress logs during testing
+
 	// Test case 1: Valid Gemini provider
 	configGemini := LLMConfig{
 		Provider: GeminiProvider,
 		APIKey:   "test-api-key",
 	}
-	llmGemini, err := NewLLMProvider(configGemini)
+	llmGemini, err := NewLLMProvider(configGemini, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, llmGemini)
 	_, ok := llmGemini.(*GeminiLLM)
@@ -24,7 +29,7 @@ func TestNewLLMProvider(t *testing.T) {
 		Provider: "unsupported-provider",
 		APIKey:   "test-api-key",
 	}
-	llmUnsupported, err := NewLLMProvider(configUnsupported)
+	llmUnsupported, err := NewLLMProvider(configUnsupported, logger)
 	assert.Error(t, err)
 	assert.Nil(t, llmUnsupported)
 	assert.ErrorIs(t, err, ErrConfiguration, "Expected ErrConfiguration for unsupported provider")
@@ -33,7 +38,7 @@ func TestNewLLMProvider(t *testing.T) {
 	configNoAPIKey := LLMConfig{
 		Provider: GeminiProvider,
 	}
-	llmNoAPIKey, err := NewLLMProvider(configNoAPIKey)
+	llmNoAPIKey, err := NewLLMProvider(configNoAPIKey, logger)
 	assert.Error(t, err)
 	assert.Nil(t, llmNoAPIKey)
 	assert.ErrorIs(t, err, ErrConfiguration, "Expected ErrConfiguration for missing APIKey")
@@ -43,6 +48,10 @@ func TestGeminiLLM_Chat(t *testing.T) {
 	// This test requires a mock HTTP server to simulate the Gemini API.
 	// For now, we'll test the basic construction and a simple chat call
 	// without hitting a real API. We'll need to enhance this with a mock server later.
+
+	// Create a test logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel) // Suppress logs during testing
 
 	apiKey := os.Getenv("GEMINI_API_KEY") // Or use a dummy key for tests not hitting the actual API
 	if apiKey == "" {
@@ -59,6 +68,9 @@ func TestGeminiLLM_Chat(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, llm)
 
+	// Set logger
+	llm.SetLogger(logger)
+
 	geminiLLM, ok := llm.(*GeminiLLM)
 	assert.True(t, ok)
 	assert.Equal(t, apiKey, geminiLLM.apiKey)
@@ -67,6 +79,7 @@ func TestGeminiLLM_Chat(t *testing.T) {
 	assert.NotEmpty(t, geminiLLM.conversationHistory)
 	assert.Equal(t, "model", geminiLLM.conversationHistory[0].Role) // System prompt
 	assert.Equal(t, getDefaultSystemPrompt(), geminiLLM.conversationHistory[0].Parts[0].Text)
+	assert.Equal(t, logger, geminiLLM.logger) // Check that logger was set correctly
 
 	// At this point, to test the Chat method properly, we would need a mock HTTP server.
 	// The following is a placeholder for how you might start to structure such a test.
@@ -91,10 +104,8 @@ func TestGeminiLLM_Chat(t *testing.T) {
 	// defer func() { geminiLLM.endpoint = originalEndpoint }() // Restore original
 	// */
 	//
-	// // reply, err := geminiLLM.Chat(messages)
+	// // err := geminiLLM.Chat(messages)
 	// // assert.NoError(t, err)
-	// // assert.Equal(t, "model", string(reply.Role))
-	// // assert.Equal(t, "Hello there!", reply.Content)
 
 	t.Log("GeminiLLM.Chat test needs a mock HTTP server for full validation.")
 }
@@ -102,33 +113,44 @@ func TestGeminiLLM_Chat(t *testing.T) {
 // Helper function to create a mock LLM for testing scenarios where a generic LLM is needed
 // without specific provider logic.
 type mockLLM struct {
-	ChatFunc func(messages []Message) (Message, error)
+	ChatFunc func(messages []Message) error
+	logger   *logrus.Logger
 }
 
-func (m *mockLLM) Chat(messages []Message) (Message, error) {
+func (m *mockLLM) Chat(messages []Message) error {
 	if m.ChatFunc != nil {
 		return m.ChatFunc(messages)
 	}
-	return Message{Role: "model", Content: "mock response"}, nil
+	return nil
+}
+
+func (m *mockLLM) SetLogger(logger *logrus.Logger) {
+	m.logger = logger
 }
 
 func TestMockLLM(t *testing.T) {
+	// Create a test logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel) // Suppress logs during testing
+
 	mock := &mockLLM{
-		ChatFunc: func(messages []Message) (Message, error) {
+		ChatFunc: func(messages []Message) error {
 			if len(messages) > 0 && messages[0].Content == "ping" {
-				return Message{Role: "model", Content: "pong"}, nil
+				return nil
 			}
-			return Message{Role: "model", Content: "default mock"}, nil
+			return nil
 		},
 	}
+	
+	// Set logger
+	mock.SetLogger(logger)
+	assert.Equal(t, logger, mock.logger)
 
-	reply, err := mock.Chat([]Message{{Role: UserRole, Content: "ping"}})
+	err := mock.Chat([]Message{{Role: UserRole, Content: "ping"}})
 	assert.NoError(t, err)
-	assert.Equal(t, "pong", reply.Content)
 
-	reply, err = mock.Chat([]Message{{Role: UserRole, Content: "hello"}})
+	err = mock.Chat([]Message{{Role: UserRole, Content: "hello"}})
 	assert.NoError(t, err)
-	assert.Equal(t, "default mock", reply.Content)
 }
 
 // It's good practice to ensure that all concrete LLM types actually implement the LLM interface.

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 
 	"devops-agent/internal/tools"
 )
@@ -17,13 +18,23 @@ type GeminiLLM struct {
 	model               string
 	endpoint            string
 	conversationHistory []Content
+	logger              *logrus.Logger
+}
+
+type GenerationConfig struct {
+	Temperature     float64  `json:"temperature,omitempty"`
+	TopP            float64  `json:"topP,omitempty"`
+	TopK            int      `json:"topK,omitempty"`
+	CandidateCount  int      `json:"candidateCount,omitempty"`
+	MaxOutputTokens int      `json:"maxOutputTokens,omitempty"`
+	StopSequences   []string `json:"stopSequences,omitempty"`
 }
 
 type GeminiRequest struct {
-	Contents      []Content      `json:"contents"`
-	Tools         []tools.Tool   `json:"tools,omitempty"`
-	SafetyRatings []SafetyRating `json:"safetySettings,omitempty"`
-	// GenerationConfig GenerationConfig `json:"generationConfig,omitempty"` // Optional
+	Contents         []Content        `json:"contents"`
+	Tools            []tools.Tool     `json:"tools,omitempty"`
+	SafetyRatings    []SafetyRating   `json:"safetySettings,omitempty"`
+	GenerationConfig GenerationConfig `json:"generationConfig,omitempty"`
 }
 
 type Content struct {
@@ -90,8 +101,18 @@ func NewGeminiLLM(config LLMConfig) (LLM, error) {
 	}, nil
 }
 
+// SetLogger sets the logger for the GeminiLLM instance
+func (g *GeminiLLM) SetLogger(logger *logrus.Logger) {
+	g.logger = logger
+	// If no logger was provided, create a default one
+	if g.logger == nil {
+		g.logger = logrus.New()
+		g.logger.SetLevel(logrus.InfoLevel)
+	}
+}
+
 // Chat implements the LLM interface for Gemini.
-func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
+func (g *GeminiLLM) Chat(messages []Message) error {
 	// Construct the API endpoint URL with the API key
 	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", g.endpoint, g.model, g.apiKey)
 
@@ -124,19 +145,22 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 				{Category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", Threshold: "BLOCK_MEDIUM_AND_ABOVE"},
 				{Category: "HARM_CATEGORY_DANGEROUS_CONTENT", Threshold: "BLOCK_MEDIUM_AND_ABOVE"},
 			},
+			GenerationConfig: GenerationConfig{
+				Temperature: 0,
+			},
 		}
 
 		jsonPayload, err := json.Marshal(requestPayload)
 		if err != nil {
-			return Message{}, fmt.Errorf("%w: failed to marshal request: %v", ErrLLMAPI, err)
+			return fmt.Errorf("%w: failed to marshal request: %v", ErrLLMAPI, err)
 		}
 
-		// fmt.Printf("\n[DEBUG] Sending to Gemini:\n%s\n", string(jsonPayload)) // For debugging
+		g.logger.Debugf("Sending to Gemini:\n%s\n", string(jsonPayload)) // For debugging
 
 		// Create HTTP request
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 		if err != nil {
-			return Message{}, fmt.Errorf("%w: failed to create request: %v", ErrLLMAPI, err)
+			return fmt.Errorf("%w: failed to create request: %v", ErrLLMAPI, err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 
@@ -144,31 +168,32 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			return Message{}, fmt.Errorf("%w: failed to send request: %v", ErrLLMAPI, err)
+			return fmt.Errorf("%w: failed to send request: %v", ErrLLMAPI, err)
 		}
 		defer resp.Body.Close()
 
 		// Read response body
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return Message{}, fmt.Errorf("%w: failed to read response: %v", ErrLLMAPI, err)
+			return fmt.Errorf("%w: failed to read response: %v", ErrLLMAPI, err)
 		}
 
 		// Check for successful status code
 		if resp.StatusCode != http.StatusOK {
-			return Message{}, fmt.Errorf("%w: API returned status %d: %s", ErrLLMAPI, resp.StatusCode, string(body))
+			return fmt.Errorf("%w: API returned status %d: %s", ErrLLMAPI, resp.StatusCode, string(body))
 		}
 
-		// fmt.Printf("\n[DEBUG] Received from Gemini:\n%s\n", string(body)) // For debugging
+		g.logger.Debugf("Received from Gemini:\n%s\n", string(body)) // For debugging
 
 		var geminiResp GeminiResponse
 		if err := json.Unmarshal(body, &geminiResp); err != nil {
-			return Message{}, fmt.Errorf("%w: failed to unmarshal response: %v", ErrInvalidResponse, err)
+			return fmt.Errorf("%w: failed to unmarshal response: %v", ErrInvalidResponse, err)
 		}
 
 		// Extract the generated text from the response
 		if len(geminiResp.Candidates) == 0 {
-			return Message{}, fmt.Errorf("%w: unexpected response structure - no candidates", ErrInvalidResponse)
+			// No candidates in the response
+			return nil
 		}
 
 		// Iterate through all candidates
@@ -179,121 +204,114 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 			}
 
 			// Add model's turn to history (whether it's a text or a function call)
-			g.conversationHistory = append(g.conversationHistory, candidate.Content)
+			modelResponse := candidate.Content
+			modelResponse.Role = "model"
+			g.conversationHistory = append(g.conversationHistory, modelResponse)
 
 			// Process each part in the candidate's content
 			for _, responsePart := range candidate.Content.Parts {
-				if responsePart.FunctionCall != nil {
-					fc := responsePart.FunctionCall
-					fmt.Printf("AI wants to call function: %s with args: %v\n", fc.Name, fc.Args)
-
-					toolFunc, exists := tools.AvailableTools[fc.Name]
-					if !exists {
-						log.Printf("Error: Gemini requested unknown tool '%s'\n", fc.Name)
-						// Send an error back to Gemini by adding a function response with an error
-						g.conversationHistory = append(g.conversationHistory, Content{
-							Role: "model", // This is technically from the "tool" role, but API expects user/model
-							Parts: []Part{{
-								FunctionResponse: &FunctionResponse{
-									Name: fc.Name,
-									Response: map[string]interface{}{
-										"error": "Tool not found: " + fc.Name,
-									},
-								},
-							}},
-						})
-						continue // Try the next candidate or re-prompt Gemini
-					}
-
-					toolResult, err := toolFunc(fc.Args)
-					if err != nil {
-						log.Printf("Error executing tool %s: %v\n", fc.Name, err)
-						// Send error back to Gemini
-						g.conversationHistory = append(g.conversationHistory, Content{
-							Role: "model", // or "tool" if API evolves; "model" seems to work for now when it's a function response.
-							Parts: []Part{{
-								FunctionResponse: &FunctionResponse{
-									Name: fc.Name,
-									Response: map[string]interface{}{
-										"error": fmt.Sprintf("Error executing tool %s: %v", fc.Name, err),
-									},
-								},
-							}},
-						})
-						continue // Try the next candidate or re-prompt Gemini with the tool execution error
-					}
-
-					log.Printf("[TOOL] %s result: %v\n", fc.Name, toolResult)
-
-					// Add function response to history
-					toolResponseContent := Content{
-						Role: "model",
-						Parts: []Part{{
-							FunctionResponse: &FunctionResponse{
-								Name:     fc.Name,
-								Response: toolResult,
-							},
-						}},
-					}
-					g.conversationHistory = append(g.conversationHistory, toolResponseContent)
-					// Now, loop again to send this history (including tool result) back to Gemini.
-				} else if responsePart.Text != "" {
+				if responsePart.Text != "" {
 					fmt.Printf("AI: %s\n", responsePart.Text)
-
-					// Check finish reason if present
-					switch candidate.FinishReason {
-					case "STOP":
-						// Normal completion, return the text response
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text,
-						}, nil
-					case "MAX_TOKENS":
-						log.Println("Warning: Response truncated due to MAX_TOKENS limit")
-						// Return what we got, but log a warning
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text + "\n[Response truncated due to token limit]",
-						}, nil
-					case "SAFETY":
-						log.Println("Warning: Response stopped due to safety concerns")
-						// Append a warning to the response
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text + "\n[Response modified due to safety filters]",
-						}, nil
-					case "RECITATION":
-						log.Println("Warning: Response stopped due to recitation concerns")
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text + "\n[Response limited due to content recitation]",
-						}, nil
-					case "OTHER":
-						log.Println("Warning: Response stopped for other reasons")
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text,
-						}, nil
-					default:
-						// No finish reason or unrecognized one, might be a partial response
-						// ...but we'll return it anyway since the model's turn is added to history
-						return Message{
-							Role:    SystemRole,
-							Content: responsePart.Text,
-						}, nil
-					}
+				} else if responsePart.FunctionCall != nil {
+					// Handle function call
+					g.handleFunctionCall(responsePart.FunctionCall)
 				} else {
-					log.Println("AI response part was empty (no text or function call).")
+					g.logger.Infoln("AI response part was empty (no text or function call).")
 
 					// Add a placeholder to avoid issues and break.
 					g.conversationHistory = append(g.conversationHistory, Content{
 						Role:  "model",
 						Parts: []Part{{Text: "I received an unexpected response. Let's try again."}},
 					})
-					fmt.Println("AI: I received an unexpected response. Let's try again.")
-					return Message{}, nil
+					g.logger.Infoln("AI: I received an unexpected response. Let's try again.")
+					return nil
 				}
+			}
+
+			// Check finish reason if present
+			switch candidate.FinishReason {
+			case "STOP":
+				// Normal completion
+				continue
+			case "MAX_TOKENS":
+				g.logger.Warnln("Warning: Response truncated due to MAX_TOKENS limit")
+				return nil
+			case "SAFETY":
+				g.logger.Warnln("Warning: Response stopped due to safety concerns")
+				return nil
+			case "RECITATION":
+				g.logger.Warnln("Warning: Response stopped due to recitation concerns")
+				return nil
+			case "OTHER":
+				g.logger.Warnln("Warning: Response stopped for other reasons")
+				return nil
+			default:
+				// No finish reason or unrecognized one, might be a partial response
+				// ...but we'll return it anyway since the model's turn is added to history
+				g.logger.Warnln("Warning: No finish reason or unrecognized one")
+				return nil
 			}
 		}
 	}
+}
+
+// handleFunctionCall processes function calls from the model
+func (g *GeminiLLM) handleFunctionCall(fc *FunctionCall) error {
+	g.logger.Infof("AI wants to call function: %s with args: %v", fc.Name, fc.Args)
+
+	// Find the matching tool
+	toolFunc, exists := tools.AvailableTools[fc.Name]
+	if !exists {
+		g.logger.Errorf("Gemini requested unknown tool '%s'\n", fc.Name)
+
+		// Send an error back to Gemini by adding a function response with an error
+		g.conversationHistory = append(g.conversationHistory, Content{
+			Role: "model",
+			Parts: []Part{{
+				FunctionResponse: &FunctionResponse{
+					Name: fc.Name,
+					Response: map[string]interface{}{
+						"error": "Tool not found: " + fc.Name,
+					},
+				},
+			}},
+		})
+
+		return fmt.Errorf("%w: tool %s not found", ErrInvalidResponse, fc.Name)
+	}
+
+	// Execute the function
+	result, err := toolFunc(fc.Args)
+	if err != nil {
+		g.logger.Errorf("Error executing tool %s: %v", fc.Name, err)
+
+		// Add the error response to conversation history
+		g.conversationHistory = append(g.conversationHistory, Content{
+			Role: "model",
+			Parts: []Part{{
+				FunctionResponse: &FunctionResponse{
+					Name: fc.Name,
+					Response: map[string]interface{}{
+						"error": fmt.Sprintf("Error executing tool %s: %v", fc.Name, err),
+					},
+				},
+			}},
+		})
+		return err
+	}
+	g.logger.Debugf("[TOOL] %s result: %v\n", fc.Name, result)
+
+	// Add successful function response to conversation history
+	g.logger.Infof("Tool %s executed successfully with result: %v", fc.Name, result)
+	g.conversationHistory = append(g.conversationHistory, Content{
+		Role: "model",
+		Parts: []Part{{
+			FunctionResponse: &FunctionResponse{
+				Name:     fc.Name,
+				Response: result,
+			},
+		}},
+	})
+
+	return nil
 }
