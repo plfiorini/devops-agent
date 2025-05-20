@@ -58,8 +58,8 @@ type GeminiResponse struct {
 }
 
 type Candidate struct {
-	Content Content `json:"content"`
-	// FinishReason ...
+	Content      Content `json:"content"`
+	FinishReason string  `json:"finishReason"`
 	// SafetyRatings ...
 }
 
@@ -159,7 +159,7 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 			return Message{}, fmt.Errorf("%w: API returned status %d: %s", ErrLLMAPI, resp.StatusCode, string(body))
 		}
 
-		fmt.Printf("\n[DEBUG] Received from Gemini:\n%s\n", string(body)) // For debugging
+		// fmt.Printf("\n[DEBUG] Received from Gemini:\n%s\n", string(body)) // For debugging
 
 		var geminiResp GeminiResponse
 		if err := json.Unmarshal(body, &geminiResp); err != nil {
@@ -239,11 +239,52 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 					// Now, loop again to send this history (including tool result) back to Gemini.
 				} else if responsePart.Text != "" {
 					fmt.Printf("AI: %s\n", responsePart.Text)
-					// The model's response (which might be a text or a function call) is already added to history above.
-					// If it was text, we're done with this turn.
-					return Message{}, nil // Break the inner loop, ready for new user input
+
+					// Check finish reason if present
+					switch candidate.FinishReason {
+					case "STOP":
+						// Normal completion, return the text response
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text,
+						}, nil
+					case "MAX_TOKENS":
+						log.Println("Warning: Response truncated due to MAX_TOKENS limit")
+						// Return what we got, but log a warning
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text + "\n[Response truncated due to token limit]",
+						}, nil
+					case "SAFETY":
+						log.Println("Warning: Response stopped due to safety concerns")
+						// Append a warning to the response
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text + "\n[Response modified due to safety filters]",
+						}, nil
+					case "RECITATION":
+						log.Println("Warning: Response stopped due to recitation concerns")
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text + "\n[Response limited due to content recitation]",
+						}, nil
+					case "OTHER":
+						log.Println("Warning: Response stopped for other reasons")
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text,
+						}, nil
+					default:
+						// No finish reason or unrecognized one, might be a partial response
+						// ...but we'll return it anyway since the model's turn is added to history
+						return Message{
+							Role:    SystemRole,
+							Content: responsePart.Text,
+						}, nil
+					}
 				} else {
 					log.Println("AI response part was empty (no text or function call).")
+
 					// Add a placeholder to avoid issues and break.
 					g.conversationHistory = append(g.conversationHistory, Content{
 						Role:  "model",
