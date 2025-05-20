@@ -3,19 +3,20 @@ package llm
 import (
 	"errors"
 	"fmt"
+	
+	"devops-agent/internal/resources"
 )
 
-// DefaultSystemPrompt is the default system message sent to LLMs to define the agent's behavior
-const DefaultSystemPrompt = `You are a helpful DevOps assistant. You can help with:
-- Infrastructure and cloud services management
-- CI/CD pipeline setup and troubleshooting
-- Containerization and Kubernetes deployments
-- System monitoring and logging
-- Automation and scripting tasks
-- Security best practices
-
-Always provide clear, concise explanations and practical solutions to DevOps problems.
-When suggesting code, ensure it follows best practices and includes comments.`
+// getDefaultSystemPrompt returns the default system prompt loaded from embedded resources.
+// If there's an error loading the prompt, it returns a simple fallback prompt.
+func getDefaultSystemPrompt() string {
+	prompt, err := resources.GetSystemPrompt()
+	if err != nil {
+		// Provide a minimal fallback prompt in case of errors
+		return "You are a helpful AI assistant for cloud architects and DevOps engineers."
+	}
+	return prompt
+}
 
 // LLM represents a generic interface for Large Language Models.
 type LLM interface {

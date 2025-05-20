@@ -79,7 +79,7 @@ func NewGeminiLLM(config LLMConfig) (LLM, error) {
 	var conversationHistory []Content
 	conversationHistory = append(conversationHistory, Content{
 		Role:  "model",
-		Parts: []Part{{Text: DefaultSystemPrompt}},
+		Parts: []Part{{Text: getDefaultSystemPrompt()}},
 	})
 
 	return &GeminiLLM{
@@ -159,7 +159,7 @@ func (g *GeminiLLM) Chat(messages []Message) (Message, error) {
 			return Message{}, fmt.Errorf("%w: API returned status %d: %s", ErrLLMAPI, resp.StatusCode, string(body))
 		}
 
-		// fmt.Printf("\n[DEBUG] Received from Gemini:\n%s\n", string(body)) // For debugging
+		fmt.Printf("\n[DEBUG] Received from Gemini:\n%s\n", string(body)) // For debugging
 
 		var geminiResp GeminiResponse
 		if err := json.Unmarshal(body, &geminiResp); err != nil {

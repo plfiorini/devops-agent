@@ -66,7 +66,7 @@ func TestGeminiLLM_Chat(t *testing.T) {
 	assert.Equal(t, "https://generativelanguage.googleapis.com/v1beta", geminiLLM.endpoint)
 	assert.NotEmpty(t, geminiLLM.conversationHistory)
 	assert.Equal(t, "model", geminiLLM.conversationHistory[0].Role) // System prompt
-	assert.Equal(t, DefaultSystemPrompt, geminiLLM.conversationHistory[0].Parts[0].Text)
+	assert.Equal(t, getDefaultSystemPrompt(), geminiLLM.conversationHistory[0].Parts[0].Text)
 
 	// At this point, to test the Chat method properly, we would need a mock HTTP server.
 	// The following is a placeholder for how you might start to structure such a test.
