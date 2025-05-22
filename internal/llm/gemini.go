@@ -236,21 +236,21 @@ func (g *GeminiLLM) Chat(messages []Message) error {
 				// Normal completion
 				continue
 			case "MAX_TOKENS":
-				g.logger.Warnln("Warning: Response truncated due to MAX_TOKENS limit")
+				g.logger.Warnln("Response truncated due to MAX_TOKENS limit")
 				return nil
 			case "SAFETY":
-				g.logger.Warnln("Warning: Response stopped due to safety concerns")
+				g.logger.Warnln("Response stopped due to safety concerns")
 				return nil
 			case "RECITATION":
-				g.logger.Warnln("Warning: Response stopped due to recitation concerns")
+				g.logger.Warnln("Response stopped due to recitation concerns")
 				return nil
 			case "OTHER":
-				g.logger.Warnln("Warning: Response stopped for other reasons")
+				g.logger.Warnln("Response stopped for other reasons")
 				return nil
 			default:
 				// No finish reason or unrecognized one, might be a partial response
 				// ...but we'll return it anyway since the model's turn is added to history
-				g.logger.Warnln("Warning: No finish reason or unrecognized one")
+				g.logger.Warnln("No finish reason or unrecognized one")
 				return nil
 			}
 		}
