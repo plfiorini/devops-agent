@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"devops-agent/internal/renderer"
 	"devops-agent/internal/tools"
 )
 
@@ -211,7 +212,8 @@ func (g *GeminiLLM) Chat(messages []Message) error {
 			// Process each part in the candidate's content
 			for _, responsePart := range candidate.Content.Parts {
 				if responsePart.Text != "" {
-					fmt.Printf("AI: %s\n", responsePart.Text)
+					// Render the text response
+					renderer.ProcessTextResponse(responsePart.Text)
 				} else if responsePart.FunctionCall != nil {
 					// Handle function call
 					g.handleFunctionCall(responsePart.FunctionCall)
@@ -299,10 +301,10 @@ func (g *GeminiLLM) handleFunctionCall(fc *FunctionCall) error {
 		})
 		return err
 	}
-	g.logger.Debugf("[TOOL] %s result: %v\n", fc.Name, result)
+	//g.logger.Debugf("[TOOL] %s result: %v\n", fc.Name, result)
 
 	// Add successful function response to conversation history
-	g.logger.Infof("Tool %s executed successfully with result: %v", fc.Name, result)
+	//g.logger.Debugf("[TOOL] %s executed successfully with result: %v", fc.Name, result)
 	g.conversationHistory = append(g.conversationHistory, Content{
 		Role: "model",
 		Parts: []Part{{
