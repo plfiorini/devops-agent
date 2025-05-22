@@ -282,8 +282,8 @@ func (g *GeminiLLM) handleFunctionCall(fc *FunctionCall) error {
 		return fmt.Errorf("%w: tool %s not found", ErrInvalidResponse, fc.Name)
 	}
 
-	// Execute the function
-	result, err := toolFunc(fc.Args)
+	// Execute the function with confirmation (unless in unsafe mode)
+	result, err := tools.ExecuteToolWithConfirmation(fc.Name, toolFunc, fc.Args)
 	if err != nil {
 		g.logger.Errorf("Error executing tool %s: %v", fc.Name, err)
 

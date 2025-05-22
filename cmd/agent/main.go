@@ -13,6 +13,7 @@ import (
 
 	"devops-agent/internal/config"
 	"devops-agent/internal/llm"
+	"devops-agent/internal/tools"
 )
 
 func main() {
@@ -25,6 +26,7 @@ func main() {
 	// Define command-line flags
 	configPath := flag.String("config", "config.yaml", "Path to the configuration file")
 	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error, fatal, panic)")
+	unsafeMode := flag.Bool("unsafe", false, "Run in unsafe mode (no confirmation for tool execution)")
 	flag.Parse()
 
 	// Set log level from flag
@@ -45,6 +47,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
+
+	// Set unsafe mode from flag
+	appConfig.UnsafeMode = *unsafeMode
+	if appConfig.UnsafeMode {
+		log.Warnln("Running in unsafe mode - commands will execute without confirmation")
+	}
+
+	// Pass unsafe mode to the tools package
+	tools.SetUnsafeMode(appConfig.UnsafeMode)
 
 	reader := bufio.NewReader(os.Stdin)
 

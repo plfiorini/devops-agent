@@ -11,7 +11,8 @@ import (
 
 // Config represents the application configuration structure.
 type Config struct {
-	LLM llm.LLMConfig `yaml:"llm"`
+	LLM        llm.LLMConfig `yaml:"llm"`
+	UnsafeMode bool          `yaml:"unsafeMode"`
 }
 
 // LoadConfig loads configuration from the specified file path.
