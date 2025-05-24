@@ -41,6 +41,7 @@ var Tools = []Tool{
 			BashDeclaration,
 			KubectlDeclaration,
 			HelmDeclaration,
+			AzDeclaration,
 		},
 	},
 }
@@ -50,6 +51,7 @@ var AvailableTools = map[string]ToolFunction{
 	"bash":    ExecuteBash,
 	"kubectl": ExecuteKubectl,
 	"helm":    ExecuteHelm,
+	"az":      ExecuteAz,
 }
 
 // SetUnsafeMode configures whether tools should run without confirmation
