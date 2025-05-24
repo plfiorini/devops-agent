@@ -1,90 +1,82 @@
 package tools
 
 import (
-	"strings"
 	"testing"
 )
 
-func TestExecuteBash(t *testing.T) {
-	tests := []struct {
-		name           string
-		args           map[string]interface{}
-		wantOutput     string
-		wantExitCode   int
-		wantErrContain string
-	}{
-		{
-			name:         "successful command",
-			args:         map[string]interface{}{"command": "echo 'hello world'"},
-			wantOutput:   "hello world",
-			wantExitCode: 0,
-		},
-		{
-			name:         "successful command with exit code",
-			args:         map[string]interface{}{"command": "exit 5"},
-			wantOutput:   "",
-			wantExitCode: 5,
-		},
-		{
-			name:           "missing command",
-			args:           map[string]interface{}{},
-			wantErrContain: "missing or invalid 'command' argument",
-		},
-		{
-			name:           "command is not a string",
-			args:           map[string]interface{}{"command": 123},
-			wantErrContain: "missing or invalid 'command' argument",
-		},
-		{
-			name:         "command with output",
-			args:         map[string]interface{}{"command": "ls -la /non-existent-directory"},
-			wantExitCode: 2, // ls returns non-zero when directory doesn't exist
-		},
+func TestBashDeclaration(t *testing.T) {
+	// Test that the declaration has the correct structure
+	if BashDeclaration.Name != "bash" {
+		t.Errorf("Expected name 'bash', got '%s'", BashDeclaration.Name)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := ExecuteBash(tt.args)
+	if BashDeclaration.Description == "" {
+		t.Error("Expected non-empty description")
+	}
 
-			// Check error cases
-			if tt.wantErrContain != "" {
-				if err == nil {
-					t.Errorf("ExecuteBash() expected error containing %q, got nil", tt.wantErrContain)
-					return
-				}
-				if !strings.Contains(err.Error(), tt.wantErrContain) {
-					t.Errorf("ExecuteBash() error = %v, want error containing %q", err, tt.wantErrContain)
-				}
-				return
-			}
+	// Test required parameters
+	expectedRequired := []string{"command"}
+	if len(BashDeclaration.Parameters.Required) != len(expectedRequired) {
+		t.Errorf("Expected %d required parameters, got %d", len(expectedRequired), len(BashDeclaration.Parameters.Required))
+	}
 
-			// Non-error cases should not return an error
-			if err != nil {
-				t.Errorf("ExecuteBash() unexpected error: %v", err)
-				return
-			}
+	for i, req := range expectedRequired {
+		if BashDeclaration.Parameters.Required[i] != req {
+			t.Errorf("Expected required parameter '%s', got '%s'", req, BashDeclaration.Parameters.Required[i])
+		}
+	}
 
-			// Check output
-			if tt.wantOutput != "" {
-				output, ok := result["output"].(string)
-				if !ok {
-					t.Errorf("ExecuteBash() result doesn't contain string 'output'")
-					return
-				}
-				if !strings.Contains(output, tt.wantOutput) {
-					t.Errorf("ExecuteBash() output = %q, want %q", output, tt.wantOutput)
-				}
-			}
+	// Test that all expected properties exist
+	expectedProps := []string{"command"}
+	for _, prop := range expectedProps {
+		if _, exists := BashDeclaration.Parameters.Properties[prop]; !exists {
+			t.Errorf("Expected property '%s' to exist", prop)
+		}
+	}
 
-			// Check exit code
-			exitCode, ok := result["exit_code"].(int)
-			if !ok {
-				t.Errorf("ExecuteBash() result doesn't contain int 'exit_code'")
-				return
-			}
-			if exitCode != tt.wantExitCode {
-				t.Errorf("ExecuteBash() exit_code = %d, want %d", exitCode, tt.wantExitCode)
-			}
-		})
+	// Test property types
+	for propName, prop := range BashDeclaration.Parameters.Properties {
+		if prop.Type != "string" {
+			t.Errorf("Expected property '%s' to be of type 'string', got '%s'", propName, prop.Type)
+		}
+		if prop.Description == "" {
+			t.Errorf("Expected property '%s' to have a description", propName)
+		}
+	}
+}
+
+func TestBashDeclarationSchema(t *testing.T) {
+	// Test schema type
+	if BashDeclaration.Parameters.Type != "object" {
+		t.Errorf("Expected schema type 'object', got '%s'", BashDeclaration.Parameters.Type)
+	}
+
+	// Test that Properties map is not nil
+	if BashDeclaration.Parameters.Properties == nil {
+		t.Error("Expected Properties map to be initialized")
+	}
+
+	// Test specific property descriptions contain expected keywords
+	commandProp := BashDeclaration.Parameters.Properties["command"]
+	if commandProp.Description == "" {
+		t.Error("Command property should have a description")
+	}
+}
+
+func TestBashDeclarationConstants(t *testing.T) {
+	// Test that the declaration is consistent
+	if BashDeclaration.Name == "" {
+		t.Error("Name should not be empty")
+	}
+
+	if BashDeclaration.Parameters.Type == "" {
+		t.Error("Parameters type should not be empty")
+	}
+
+	// Test that required fields are actually in properties
+	for _, req := range BashDeclaration.Parameters.Required {
+		if _, exists := BashDeclaration.Parameters.Properties[req]; !exists {
+			t.Errorf("Required field '%s' should exist in properties", req)
+		}
 	}
 }

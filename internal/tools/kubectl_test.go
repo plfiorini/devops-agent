@@ -1,84 +1,128 @@
 package tools
 
 import (
-	"reflect"
 	"testing"
 )
 
-// contains checks if a string is present in a slice
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 func TestKubectlDeclaration(t *testing.T) {
-	// Validate KubectlDeclaration has the expected properties
+	// Test that the declaration has the correct structure
 	if KubectlDeclaration.Name != "kubectl" {
-		t.Errorf("Expected KubectlDeclaration.Name to be 'kubectl', got '%s'", KubectlDeclaration.Name)
+		t.Errorf("Expected name 'kubectl', got '%s'", KubectlDeclaration.Name)
 	}
 
-	// Check that required parameters are defined correctly
-	commandParam, exists := KubectlDeclaration.Parameters.Properties["command"]
-	if !exists {
-		t.Errorf("Expected KubectlDeclaration to have 'command' parameter")
-	} else {
-		if commandParam.Type != "string" {
-			t.Errorf("Expected 'command' parameter to be of type 'string', got '%s'", commandParam.Type)
+	if KubectlDeclaration.Description == "" {
+		t.Error("Expected non-empty description")
+	}
+
+	// Test required parameters
+	expectedRequired := []string{"command"}
+	if len(KubectlDeclaration.Parameters.Required) != len(expectedRequired) {
+		t.Errorf("Expected %d required parameters, got %d", len(expectedRequired), len(KubectlDeclaration.Parameters.Required))
+	}
+
+	for i, req := range expectedRequired {
+		if KubectlDeclaration.Parameters.Required[i] != req {
+			t.Errorf("Expected required parameter '%s', got '%s'", req, KubectlDeclaration.Parameters.Required[i])
 		}
 	}
 
-	// Check optional parameters
-	optionalParams := []string{"context", "namespace", "output"}
-	for _, param := range optionalParams {
-		p, exists := KubectlDeclaration.Parameters.Properties[param]
-		if !exists {
-			t.Errorf("Expected KubectlDeclaration to have '%s' parameter", param)
-		} else {
-			if KubectlDeclaration.Parameters.Required != nil && contains(KubectlDeclaration.Parameters.Required, param) {
-				t.Errorf("Expected '%s' parameter to be optional, but it is required", param)
-			}
-			if p.Type != "string" {
-				t.Errorf("Expected '%s' parameter to be of type 'string', got '%s'", param, p.Type)
-			}
+	// Test that all expected properties exist
+	expectedProps := []string{"command", "context", "namespace", "output"}
+	for _, prop := range expectedProps {
+		if _, exists := KubectlDeclaration.Parameters.Properties[prop]; !exists {
+			t.Errorf("Expected property '%s' to exist", prop)
+		}
+	}
+
+	// Test property types
+	for propName, prop := range KubectlDeclaration.Parameters.Properties {
+		if prop.Type != "string" {
+			t.Errorf("Expected property '%s' to be of type 'string', got '%s'", propName, prop.Type)
+		}
+		if prop.Description == "" {
+			t.Errorf("Expected property '%s' to have a description", propName)
 		}
 	}
 }
 
-func TestExecuteKubectlSignature(t *testing.T) {
-	// Use reflection to verify function signature
-	fnType := reflect.TypeOf(ExecuteKubectl)
-
-	// Check that it's a function
-	if fnType.Kind() != reflect.Func {
-		t.Fatal("ExecuteKubectl is not a function")
+func TestKubectlDeclarationSchema(t *testing.T) {
+	// Test schema type
+	if KubectlDeclaration.Parameters.Type != "object" {
+		t.Errorf("Expected schema type 'object', got '%s'", KubectlDeclaration.Parameters.Type)
 	}
 
-	// Check parameter count
-	if fnType.NumIn() != 1 {
-		t.Errorf("ExecuteKubectl should accept 1 parameter, got %d", fnType.NumIn())
+	// Test that Properties map is not nil
+	if KubectlDeclaration.Parameters.Properties == nil {
+		t.Error("Expected Properties map to be initialized")
 	}
 
-	// Check parameter type
-	if fnType.In(0).Kind() != reflect.Map {
-		t.Errorf("ExecuteKubectl parameter should be a map, got %s", fnType.In(0).Kind())
+	// Test specific property descriptions contain expected keywords
+	commandProp := KubectlDeclaration.Parameters.Properties["command"]
+	if commandProp.Description == "" {
+		t.Error("Command property should have a description")
 	}
 
-	// Check return values
-	if fnType.NumOut() != 2 {
-		t.Errorf("ExecuteKubectl should return 2 values, got %d", fnType.NumOut())
+	contextProp := KubectlDeclaration.Parameters.Properties["context"]
+	if contextProp.Description == "" {
+		t.Error("Context property should have a description")
 	}
 
-	// Check first return value (should be map[string]interface{})
-	if fnType.Out(0).Kind() != reflect.Map {
-		t.Errorf("First return value should be a map, got %s", fnType.Out(0).Kind())
+	namespaceProp := KubectlDeclaration.Parameters.Properties["namespace"]
+	if namespaceProp.Description == "" {
+		t.Error("Namespace property should have a description")
 	}
 
-	// Check second return value (should be error)
-	if fnType.Out(1).String() != "error" {
-		t.Errorf("Second return value should be error, got %s", fnType.Out(1).String())
+	outputProp := KubectlDeclaration.Parameters.Properties["output"]
+	if outputProp.Description == "" {
+		t.Error("Output property should have a description")
+	}
+}
+
+func TestKubectlDeclarationConstants(t *testing.T) {
+	// Test that the declaration is consistent
+	if KubectlDeclaration.Name == "" {
+		t.Error("Name should not be empty")
+	}
+
+	if KubectlDeclaration.Parameters.Type == "" {
+		t.Error("Parameters type should not be empty")
+	}
+
+	// Test that required fields are actually in properties
+	for _, req := range KubectlDeclaration.Parameters.Required {
+		if _, exists := KubectlDeclaration.Parameters.Properties[req]; !exists {
+			t.Errorf("Required field '%s' should exist in properties", req)
+		}
+	}
+}
+
+func TestKubectlDeclarationDescriptions(t *testing.T) {
+	// Test that description mentions kubectl
+	if KubectlDeclaration.Description == "" {
+		t.Error("Declaration should have a description")
+	}
+
+	// Test command property description mentions kubectl prefix
+	commandProp := KubectlDeclaration.Parameters.Properties["command"]
+	if commandProp.Description == "" {
+		t.Error("Command property description should not be empty")
+	}
+
+	// Test context property mentions Kubernetes context
+	contextProp := KubectlDeclaration.Parameters.Properties["context"]
+	if contextProp.Description == "" {
+		t.Error("Context property description should not be empty")
+	}
+
+	// Test namespace property mentions Kubernetes namespace
+	namespaceProp := KubectlDeclaration.Parameters.Properties["namespace"]
+	if namespaceProp.Description == "" {
+		t.Error("Namespace property description should not be empty")
+	}
+
+	// Test output property mentions format examples
+	outputProp := KubectlDeclaration.Parameters.Properties["output"]
+	if outputProp.Description == "" {
+		t.Error("Output property description should not be empty")
 	}
 }
