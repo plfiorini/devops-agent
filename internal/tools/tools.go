@@ -34,9 +34,20 @@ type ToolFunction func(args map[string]interface{}) (map[string]interface{}, err
 // Global configuration for tools
 var UnsafeMode bool = false
 
+// Tool declarations
+var Tools = []Tool{
+	{
+		FunctionDeclarations: []FunctionDeclaration{
+			BashDeclaration,
+			KubectlDeclaration,
+		},
+	},
+}
+
 // AvailableTools maps tool names to their implementations
 var AvailableTools = map[string]ToolFunction{
-	"bash": ExecuteBash,
+	"bash":    ExecuteBash,
+	"kubectl": ExecuteKubectl,
 }
 
 // SetUnsafeMode configures whether tools should run without confirmation
@@ -70,12 +81,4 @@ func ExecuteToolWithConfirmation(name string, toolFunc ToolFunction, args map[st
 
 	// User confirmed, execute the tool
 	return toolFunc(args)
-}
-
-var Tools = []Tool{
-	{
-		FunctionDeclarations: []FunctionDeclaration{
-			BashDeclaration,
-		},
-	},
 }

@@ -16,5 +16,5 @@ func TestGetSystemPrompt(t *testing.T) {
 
 	// Test that the prompt contains expected content
 	assert.True(t, strings.Contains(prompt, "You are a helpful assistant"))
-	assert.True(t, strings.Contains(prompt, "You have access to the following tools"))
+	assert.True(t, strings.Contains(prompt, "You can help with"))
 }
