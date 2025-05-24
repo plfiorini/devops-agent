@@ -75,20 +75,7 @@ func ExecuteToolWithConfirmation(name string, toolFunc ToolFunction, args map[st
 var Tools = []Tool{
 	{
 		FunctionDeclarations: []FunctionDeclaration{
-			{
-				Name:        "bash",
-				Description: "Execute a bash command and return the result",
-				Parameters: Schema{
-					Type: "object",
-					Properties: map[string]Property{
-						"command": {
-							Type:        "string",
-							Description: "The bash command to execute",
-						},
-					},
-					Required: []string{"command"},
-				},
-			},
+			BashDeclaration,
 		},
 	},
 }

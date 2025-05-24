@@ -5,6 +5,21 @@ import (
 	"os/exec"
 )
 
+var BashDeclaration = FunctionDeclaration{
+	Name:        "bash",
+	Description: "Execute a bash command and return the result",
+	Parameters: Schema{
+		Type: "object",
+		Properties: map[string]Property{
+			"command": {
+				Type:        "string",
+				Description: "The bash command to execute",
+			},
+		},
+		Required: []string{"command"},
+	},
+}
+
 func ExecuteBash(args map[string]interface{}) (map[string]interface{}, error) {
 	command, ok := args["command"].(string)
 	if !ok {
