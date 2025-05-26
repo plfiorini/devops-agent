@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var AzDeclaration = FunctionDeclaration{
+var AzDeclaration = Tool{
 	Name:        "az",
 	Description: "Execute an Azure CLI command and return the result",
 	Parameters: Schema{
@@ -14,6 +14,7 @@ var AzDeclaration = FunctionDeclaration{
 			"command": {
 				Type:        "string",
 				Description: "The Azure CLI command to execute (without the 'az' prefix)",
+				Required:    true,
 			},
 			"subscription": {
 				Type:        "string",
@@ -28,7 +29,6 @@ var AzDeclaration = FunctionDeclaration{
 				Description: "The output format (e.g., json, yaml, table, tsv) (optional)",
 			},
 		},
-		Required: []string{"command"},
 	},
 }
 

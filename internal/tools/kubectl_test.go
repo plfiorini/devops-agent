@@ -14,16 +14,12 @@ func TestKubectlDeclaration(t *testing.T) {
 		t.Error("Expected non-empty description")
 	}
 
-	// Test required parameters
-	expectedRequired := []string{"command"}
-	if len(KubectlDeclaration.Parameters.Required) != len(expectedRequired) {
-		t.Errorf("Expected %d required parameters, got %d", len(expectedRequired), len(KubectlDeclaration.Parameters.Required))
-	}
-
-	for i, req := range expectedRequired {
-		if KubectlDeclaration.Parameters.Required[i] != req {
-			t.Errorf("Expected required parameter '%s', got '%s'", req, KubectlDeclaration.Parameters.Required[i])
-		}
+	// Test that required properties are marked correctly
+	commandProp, exists := KubectlDeclaration.Parameters.Properties["command"]
+	if !exists {
+		t.Error("Expected 'command' property to exist")
+	} else if !commandProp.Required {
+		t.Error("Expected 'command' property to be required")
 	}
 
 	// Test that all expected properties exist
@@ -88,10 +84,10 @@ func TestKubectlDeclarationConstants(t *testing.T) {
 		t.Error("Parameters type should not be empty")
 	}
 
-	// Test that required fields are actually in properties
-	for _, req := range KubectlDeclaration.Parameters.Required {
-		if _, exists := KubectlDeclaration.Parameters.Properties[req]; !exists {
-			t.Errorf("Required field '%s' should exist in properties", req)
+	// Make sure required properties are correctly marked
+	for propName, prop := range KubectlDeclaration.Parameters.Properties {
+		if propName == "command" && !prop.Required {
+			t.Error("Command property should be marked as required")
 		}
 	}
 }

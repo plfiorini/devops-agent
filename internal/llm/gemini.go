@@ -33,7 +33,7 @@ type GenerationConfig struct {
 
 type GeminiRequest struct {
 	Contents         []Content        `json:"contents"`
-	Tools            []tools.Tool     `json:"tools,omitempty"`
+	Tools            []Tool           `json:"tools,omitempty"`
 	SafetyRatings    []SafetyRating   `json:"safetySettings,omitempty"`
 	GenerationConfig GenerationConfig `json:"generationConfig,omitempty"`
 }
@@ -47,6 +47,27 @@ type Part struct {
 	Text             string            `json:"text,omitempty"`
 	FunctionCall     *FunctionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *FunctionResponse `json:"functionResponse,omitempty"`
+}
+
+type Tool struct {
+	FunctionDeclarations []FunctionDeclaration `json:"functionDeclarations"`
+}
+
+type FunctionDeclaration struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Parameters  Schema `json:"parameters"`
+}
+
+type Schema struct {
+	Type       string              `json:"type"` // e.g., "object"
+	Properties map[string]Property `json:"properties"`
+	Required   []string            `json:"required,omitempty"`
+}
+
+type Property struct {
+	Type        string `json:"type"` // e.g., "string", "number"
+	Description string `json:"description"`
 }
 
 type FunctionCall struct {
@@ -135,11 +156,47 @@ func (g *GeminiLLM) Chat(messages []Message) error {
 		})
 	}
 
+	// Convert tools.Tools to Gemini format
+	var geminiTools []Tool
+	if len(tools.Tools) > 0 {
+		var functionDeclarations []FunctionDeclaration
+		for _, tool := range tools.Tools {
+			// Extract required properties for this tool
+			var requiredProps []string
+			for name, prop := range tool.Parameters.Properties {
+				if prop.Required {
+					requiredProps = append(requiredProps, name)
+				}
+			}
+			functionDeclaration := FunctionDeclaration{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters: Schema{
+					Type:       "object",
+					Properties: make(map[string]Property),
+					Required:   requiredProps,
+				},
+			}
+
+			// Convert parameters from tools.Tool to Gemini format
+			for paramName, param := range tool.Parameters.Properties {
+				functionDeclaration.Parameters.Properties[paramName] = Property{
+					Type:        param.Type,
+					Description: param.Description,
+				}
+			}
+			functionDeclarations = append(functionDeclarations, functionDeclaration)
+		}
+		geminiTools = []Tool{{
+			FunctionDeclarations: functionDeclarations,
+		}}
+	}
+
 	// Keep trying until Gemini gives a text response (not a function call)
 	for {
 		requestPayload := GeminiRequest{
 			Contents: g.conversationHistory,
-			Tools:    tools.Tools,
+			Tools:    geminiTools,
 			SafetyRatings: []SafetyRating{
 				{Category: "HARM_CATEGORY_HARASSMENT", Threshold: "BLOCK_MEDIUM_AND_ABOVE"},
 				{Category: "HARM_CATEGORY_HATE_SPEECH", Threshold: "BLOCK_MEDIUM_AND_ABOVE"},

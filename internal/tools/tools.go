@@ -8,24 +8,20 @@ import (
 )
 
 type Tool struct {
-	FunctionDeclarations []FunctionDeclaration `json:"functionDeclarations"`
-}
-
-type FunctionDeclaration struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Parameters  Schema `json:"parameters"`
+	Name        string
+	Description string
+	Parameters  Schema
 }
 
 type Schema struct {
-	Type       string              `json:"type"` // e.g., "object"
-	Properties map[string]Property `json:"properties"`
-	Required   []string            `json:"required,omitempty"`
+	Type       string
+	Properties map[string]Property
 }
 
 type Property struct {
-	Type        string `json:"type"` // e.g., "string", "number"
-	Description string `json:"description"`
+	Type        string
+	Description string
+	Required    bool
 }
 
 // ToolFunction represents a function our AI can call
@@ -36,14 +32,10 @@ var UnsafeMode bool = false
 
 // Tool declarations
 var Tools = []Tool{
-	{
-		FunctionDeclarations: []FunctionDeclaration{
-			BashDeclaration,
-			KubectlDeclaration,
-			HelmDeclaration,
-			AzDeclaration,
-		},
-	},
+	BashDeclaration,
+	KubectlDeclaration,
+	HelmDeclaration,
+	AzDeclaration,
 }
 
 // AvailableTools maps tool names to their implementations

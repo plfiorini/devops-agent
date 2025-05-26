@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var HelmDeclaration = FunctionDeclaration{
+var HelmDeclaration = Tool{
 	Name:        "helm",
 	Description: "Execute a helm command and return the result",
 	Parameters: Schema{
@@ -14,6 +14,7 @@ var HelmDeclaration = FunctionDeclaration{
 			"command": {
 				Type:        "string",
 				Description: "The helm command to execute (without the 'helm' prefix)",
+				Required:    true,
 			},
 			"kubecontext": {
 				Type:        "string",
@@ -28,7 +29,6 @@ var HelmDeclaration = FunctionDeclaration{
 				Description: "The output format (e.g., json, yaml, table) (optional)",
 			},
 		},
-		Required: []string{"command"},
 	},
 }
 

@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var BashDeclaration = FunctionDeclaration{
+var BashDeclaration = Tool{
 	Name:        "bash",
 	Description: "Execute a bash command and return the result",
 	Parameters: Schema{
@@ -14,9 +14,9 @@ var BashDeclaration = FunctionDeclaration{
 			"command": {
 				Type:        "string",
 				Description: "The bash command to execute",
+				Required:    true,
 			},
 		},
-		Required: []string{"command"},
 	},
 }
 

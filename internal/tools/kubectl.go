@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var KubectlDeclaration = FunctionDeclaration{
+var KubectlDeclaration = Tool{
 	Name:        "kubectl",
 	Description: "Execute a kubectl command and return the result",
 	Parameters: Schema{
@@ -14,6 +14,7 @@ var KubectlDeclaration = FunctionDeclaration{
 			"command": {
 				Type:        "string",
 				Description: "The kubectl command to execute (without the 'kubectl' prefix)",
+				Required:    true,
 			},
 			"context": {
 				Type:        "string",
@@ -28,7 +29,6 @@ var KubectlDeclaration = FunctionDeclaration{
 				Description: "The output format (e.g., json, yaml, wide) (optional)",
 			},
 		},
-		Required: []string{"command"},
 	},
 }
 

@@ -14,16 +14,12 @@ func TestAzDeclaration(t *testing.T) {
 		t.Error("Expected non-empty description")
 	}
 
-	// Test required parameters
-	expectedRequired := []string{"command"}
-	if len(AzDeclaration.Parameters.Required) != len(expectedRequired) {
-		t.Errorf("Expected %d required parameters, got %d", len(expectedRequired), len(AzDeclaration.Parameters.Required))
-	}
-
-	for i, req := range expectedRequired {
-		if AzDeclaration.Parameters.Required[i] != req {
-			t.Errorf("Expected required parameter '%s', got '%s'", req, AzDeclaration.Parameters.Required[i])
-		}
+	// Test that required properties are marked correctly
+	commandProp, exists := AzDeclaration.Parameters.Properties["command"]
+	if !exists {
+		t.Error("Expected 'command' property to exist")
+	} else if !commandProp.Required {
+		t.Error("Expected 'command' property to be required")
 	}
 
 	// Test that all expected properties exist
@@ -88,10 +84,10 @@ func TestAzDeclarationConstants(t *testing.T) {
 		t.Error("Parameters type should not be empty")
 	}
 
-	// Test that required fields are actually in properties
-	for _, req := range AzDeclaration.Parameters.Required {
-		if _, exists := AzDeclaration.Parameters.Properties[req]; !exists {
-			t.Errorf("Required field '%s' should exist in properties", req)
+	// Make sure required properties are correctly marked
+	for propName, prop := range AzDeclaration.Parameters.Properties {
+		if propName == "command" && !prop.Required {
+			t.Error("Command property should be marked as required")
 		}
 	}
 }
