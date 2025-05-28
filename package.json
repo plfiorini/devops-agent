@@ -16,8 +16,8 @@
     "cli",
     "node"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Pier Luigi Fiorini",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^20.12.0",
@@ -25,6 +25,9 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
+    "@langchain/google-genai": "^0.2.10",
+    "dotenv": "^16.5.0",
+    "langchain": "^0.3.27",
     "readline": "^1.3.0"
   }
 }
