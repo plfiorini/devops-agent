@@ -1,0 +1,30 @@
+{
+  "name": "devops-agent",
+  "version": "1.0.0",
+  "description": "A DevOps agent with interactive command prompt",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "devops",
+    "agent",
+    "cli",
+    "node"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "readline": "^1.3.0"
+  }
+}
