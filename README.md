@@ -7,9 +7,36 @@ A Node.js TypeScript application that provides an interactive command-line inter
 - Interactive command prompt with AI-powered responses
 - Google Gemini AI integration for DevOps questions and guidance
 - Support for direct prompts and structured questions
+- **YAML configuration with Zod schema validation**
+- Flexible configuration loading from multiple locations
 - Built with TypeScript and Node.js 24
 - LangChain integration for advanced AI capabilities
 - Includes devcontainer setup for consistent development environment
+
+## Configuration
+
+The application uses YAML configuration files with Zod schema validation. Configuration files are loaded in the following order:
+
+1. `devops-agent.yaml`
+2. `devops-agent.yml` 
+3. `.devops-agent.yaml`
+4. `.devops-agent.yml`
+5. `config.yaml`
+6. `config.yml`
+
+### Configuration Format
+
+```yaml
+llm:
+  gemini:
+    model: gemini-2.0-flash
+    maxOutputTokens: 2048
+    # apiKey: your_api_key_here  # Optional: can use GOOGLE_API_KEY environment variable
+```
+
+### Environment Variables
+
+- `GOOGLE_API_KEY`: Your Google Gemini API key (required if not set in config file)
 
 ## Getting Started
 
@@ -64,23 +91,16 @@ A Node.js TypeScript application that provides an interactive command-line inter
 
 ## Usage
 
-Once the application is running, you'll see an interactive prompt:
-
-```
-Welcome to DevOps Agent!
-Available commands: exit, ask, help
-Type "exit" to quit or press CTRL+D
-> 
-```
+Once the application is running, you can interact with it using the following commands:
 
 ### Available Commands
 
-- **`help`** - Show all available commands and examples
-- **`ask <question>`** - Ask Gemini a specific DevOps question
-- **`<any text>`** - Send any text directly to Gemini for AI-powered responses
-- **`exit`** - Exit the application
+- `help` - Show available commands and examples
+- `ask <question>` - Ask Gemini a specific DevOps question
+- `<any text>` - Send any text directly to Gemini for processing
+- `exit` - Exit the application
 
-### Example Usage
+### Example Interactions
 
 ```bash
 > help
@@ -99,24 +119,13 @@ Examples:
 Thinking...
 Gemini: A CI/CD pipeline automates the process of integrating code changes...
 
-> What are Docker best practices?
+> What are the benefits of using Docker?
 Thinking...
-Gemini: Here are some key Docker best practices...
+Gemini: Docker provides several benefits for application deployment...
+
+> exit
+Goodbye!
 ```
-
-Once the application is running, you'll see a prompt:
-
-```
-Welcome to DevOps Agent!
-Type "exit" to quit or press CTRL+D
-> 
-```
-
-### Commands
-
-- `exit` - Exit the application
-- CTRL+D - Exit the application
-- CTRL+C - Display exit instructions
 
 ## Project Structure
 

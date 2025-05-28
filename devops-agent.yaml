@@ -1,0 +1,6 @@
+# DevOps Agent Configuration
+llm:
+  gemini:
+    model: gemini-2.0-flash
+    maxOutputTokens: 2048
+    # apiKey: your_api_key_here  # Optional: can use GOOGLE_API_KEY environment variable instead

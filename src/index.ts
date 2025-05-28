@@ -1,29 +1,30 @@
-import * as readline from 'readline';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { HumanMessage } from '@langchain/core/messages';
 import * as dotenv from 'dotenv';
+import * as readline from 'readline';
+import { DevOpsAIAgent } from './agent/devops-agent';
+import { loadConfig } from './config/loader';
+import type { Config } from './config/schema';
 
 // Load environment variables
 dotenv.config();
 
 class DevOpsAgent {
   private rl: readline.Interface;
-  private availableCommands: string[] = ['exit', 'ask', 'help'];
-  private geminiModel: ChatGoogleGenerativeAI;
+  private availableCommands: string[] = ['exit', 'ask', 'help', 'clear', 'tools'];
+  private aiAgent: DevOpsAIAgent;
+  private config: Config;
 
   constructor() {
+    // Load configuration
+    this.config = loadConfig();
+    
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: '\x1b[1m\x1b[34m> \x1b[0m'
+      prompt: '> '
     });
 
-    // Initialize Gemini model
-    this.geminiModel = new ChatGoogleGenerativeAI({
-      model: "gemini-pro",
-      apiKey: process.env.GOOGLE_API_KEY,
-      maxOutputTokens: 2048,
-    });
+    // Initialize AI Agent with configuration
+    this.aiAgent = new DevOpsAIAgent(this.config);
 
     this.setupEventHandlers();
   }
@@ -65,44 +66,70 @@ class DevOpsAgent {
       return;
     }
 
+    if (command === 'clear') {
+      this.clearConversation();
+      return;
+    }
+
+    if (command === 'tools') {
+      this.showTools();
+      return;
+    }
+
     if (command.startsWith('ask ')) {
       const prompt = command.substring(4).trim();
       if (prompt) {
-        await this.sendToGemini(prompt);
+        await this.sendToAgent(prompt);
       } else {
         console.log('Please provide a question after "ask". Example: ask How do I deploy a Docker container?');
       }
       return;
     }
 
-    // If no specific command matched, treat it as a direct prompt to Gemini
-    await this.sendToGemini(command);
+    // If no specific command matched, treat it as a direct prompt to the AI Agent
+    await this.sendToAgent(command);
   }
 
-  private async sendToGemini(prompt: string): Promise<void> {
+  private async sendToAgent(prompt: string): Promise<void> {
     try {
-      console.log('\x1b[33mThinking...\x1b[0m');
+      console.log('Processing request...');
       
-      const message = new HumanMessage(prompt);
-      const response = await this.geminiModel.invoke([message]);
+      const response = await this.aiAgent.processMessage(prompt);
       
-      console.log('\x1b[32mGemini:\x1b[0m', response.content);
+      console.log('\nAI Agent:', response);
     } catch (error) {
-      console.error('\x1b[31mError communicating with Gemini:\x1b[0m', error instanceof Error ? error.message : error);
+      console.error('Error communicating with AI Agent:', error instanceof Error ? error.message : error);
       console.log('Please check your GOOGLE_API_KEY in the .env file');
     }
   }
 
+  private clearConversation(): void {
+    this.aiAgent.clearConversationHistory();
+    console.log('Conversation history cleared.');
+  }
+
+  private showTools(): void {
+    console.log('Available DevOps Tools:');
+    const tools = this.aiAgent.getAvailableTools();
+    for (const tool of tools) {
+      console.log(`  • ${tool}`);
+    }
+  }
+
   private showHelp(): void {
-    console.log('\x1b[36mAvailable commands:\x1b[0m');
+    console.log('Available commands:');
     console.log('  exit                    - Exit the application');
     console.log('  help                    - Show this help message');
-    console.log('  ask <question>          - Ask Gemini a specific question');
-    console.log('  <any text>              - Send any text directly to Gemini');
-    console.log('\x1b[36mExamples:\x1b[0m');
+    console.log('  ask <question>          - Ask the AI Agent a specific question');
+    console.log('  clear                   - Clear conversation history');
+    console.log('  tools                   - Show available DevOps tools');
+    console.log('  <any text>              - Send any text directly to the AI Agent');
+    console.log('Examples:');
     console.log('  ask How do I deploy a Docker container?');
     console.log('  What is Kubernetes?');
     console.log('  Explain CI/CD best practices');
+    console.log('  clear');
+    console.log('  tools');
   }
 
   private exit(): void {
