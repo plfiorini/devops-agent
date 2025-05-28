@@ -9,23 +9,23 @@ var KubectlDeclaration = Tool{
 	Name:        "kubectl",
 	Description: "Execute a kubectl command and return the result",
 	Parameters: Schema{
-		Type: "object",
+		Type: DataTypeObject,
 		Properties: map[string]Property{
 			"command": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The kubectl command to execute (without the 'kubectl' prefix)",
 				Required:    true,
 			},
 			"context": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Kubernetes context to use (optional)",
 			},
 			"namespace": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Kubernetes namespace to use (optional)",
 			},
 			"output": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The output format (e.g., json, yaml, wide) (optional)",
 			},
 		},

@@ -9,23 +9,23 @@ var AzDeclaration = Tool{
 	Name:        "az",
 	Description: "Execute an Azure CLI command and return the result",
 	Parameters: Schema{
-		Type: "object",
+		Type: DataTypeObject,
 		Properties: map[string]Property{
 			"command": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Azure CLI command to execute (without the 'az' prefix)",
 				Required:    true,
 			},
 			"subscription": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Azure subscription ID or name to use (optional)",
 			},
 			"resource_group": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Azure resource group to use (optional)",
 			},
 			"output": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The output format (e.g., json, yaml, table, tsv) (optional)",
 			},
 		},

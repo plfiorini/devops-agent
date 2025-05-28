@@ -9,23 +9,23 @@ var HelmDeclaration = Tool{
 	Name:        "helm",
 	Description: "Execute a helm command and return the result",
 	Parameters: Schema{
-		Type: "object",
+		Type: DataTypeObject,
 		Properties: map[string]Property{
 			"command": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The helm command to execute (without the 'helm' prefix)",
 				Required:    true,
 			},
 			"kubecontext": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Kubernetes context to use for Helm (optional)",
 			},
 			"namespace": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The Kubernetes namespace to use for Helm (optional)",
 			},
 			"output": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The output format (e.g., json, yaml, table) (optional)",
 			},
 		},

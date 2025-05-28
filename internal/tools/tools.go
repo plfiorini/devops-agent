@@ -7,30 +7,47 @@ import (
 	"strings"
 )
 
+// Tool represents a tool that can be executed by the AI.
 type Tool struct {
 	Name        string
 	Description string
 	Parameters  Schema
 }
 
+// DataType represents the type of data a property can hold.
+type DataType string
+
+const (
+	// DataTypeString represents a string type.
+	DataTypeString DataType = "string"
+	// DataTypeInteger represents an integer type.
+	DataTypeInteger DataType = "integer"
+	// DataTypeBoolean represents a boolean type.
+	DataTypeBoolean DataType = "boolean"
+	// DataTypeObject represents an object type.
+	DataTypeObject DataType = "object"
+)
+
+// Schema represents an object schema for tool parameters.
 type Schema struct {
-	Type       string
+	Type       DataType
 	Properties map[string]Property
 }
 
+// Property represents a property in a schema.
 type Property struct {
-	Type        string
+	Type        DataType
 	Description string
 	Required    bool
 }
 
-// ToolFunction represents a function our AI can call
+// ToolFunction represents a function our AI can call.
 type ToolFunction func(args map[string]interface{}) (map[string]interface{}, error)
 
 // Global configuration for tools
 var UnsafeMode bool = false
 
-// Tool declarations
+// Tools is a list of all available tools.
 var Tools = []Tool{
 	BashDeclaration,
 	KubectlDeclaration,
@@ -38,7 +55,7 @@ var Tools = []Tool{
 	AzDeclaration,
 }
 
-// AvailableTools maps tool names to their implementations
+// AvailableTools maps tool names to their implementations.
 var AvailableTools = map[string]ToolFunction{
 	"bash":    ExecuteBash,
 	"kubectl": ExecuteKubectl,

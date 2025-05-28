@@ -3,9 +3,9 @@ package llm
 import (
 	"errors"
 	"fmt"
-	
+
 	"github.com/sirupsen/logrus"
-	
+
 	"devops-agent/internal/resources"
 )
 
@@ -25,7 +25,7 @@ type LLM interface {
 	// Chat sends a series of messages to the LLM and returns the assistant's reply.
 	// Implementations should handle the context of the conversation.
 	Chat(messages []Message) error
-	
+
 	// SetLogger sets the logger for the LLM instance
 	SetLogger(logger *logrus.Logger)
 }
@@ -60,16 +60,17 @@ var (
 type LLMProviderType string
 
 const (
-	GeminiProvider    LLMProviderType = "gemini"
+	// GeminiProvider is the provider for Google Gemini LLM.
+	GeminiProvider LLMProviderType = "gemini"
 	// Add other providers here
 )
 
 // LLMConfig holds the configuration for an LLM provider.
 type LLMConfig struct {
-	Provider         LLMProviderType `yaml:"provider"`
-	APIKey           string          `yaml:"apiKey"`
-	Model            string          `yaml:"model,omitempty"`            // Optional: if not provided, the default model for the provider will be used.
-	Endpoint         string          `yaml:"endpoint,omitempty"`         // Optional: if not provided, the default endpoint for the provider will be used.
+	Provider LLMProviderType `yaml:"provider"`
+	APIKey   string          `yaml:"apiKey"`
+	Model    string          `yaml:"model,omitempty"`    // Optional: if not provided, the default model for the provider will be used.
+	Endpoint string          `yaml:"endpoint,omitempty"` // Optional: if not provided, the default endpoint for the provider will be used.
 }
 
 // NewLLMProvider is a factory function that returns an LLM interface based on the provider type.
@@ -80,18 +81,18 @@ func NewLLMProvider(config LLMConfig, logger *logrus.Logger) (LLM, error) {
 
 	var llmInstance LLM
 	var err error
-	
+
 	switch config.Provider {
 	case GeminiProvider:
 		llmInstance, err = NewGeminiLLM(config)
 	default:
 		return nil, fmt.Errorf("%w: unsupported LLM provider: %s", ErrConfiguration, config.Provider)
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set the logger in the LLM instance
 	llmInstance.SetLogger(logger)
 	return llmInstance, nil

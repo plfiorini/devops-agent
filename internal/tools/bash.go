@@ -9,10 +9,10 @@ var BashDeclaration = Tool{
 	Name:        "bash",
 	Description: "Execute a bash command and return the result",
 	Parameters: Schema{
-		Type: "object",
+		Type: DataTypeObject,
 		Properties: map[string]Property{
 			"command": {
-				Type:        "string",
+				Type:        DataTypeString,
 				Description: "The bash command to execute",
 				Required:    true,
 			},

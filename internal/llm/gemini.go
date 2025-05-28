@@ -181,7 +181,7 @@ func (g *GeminiLLM) Chat(messages []Message) error {
 			// Convert parameters from tools.Tool to Gemini format
 			for paramName, param := range tool.Parameters.Properties {
 				functionDeclaration.Parameters.Properties[paramName] = Property{
-					Type:        param.Type,
+					Type:        string(param.Type),
 					Description: param.Description,
 				}
 			}
