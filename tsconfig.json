@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+		/* Base Options: */
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"target": "ES2024",
+		"resolveJsonModule": true,
+		"moduleDetection": "force",
+		/* Strictness: */
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		/* Transpilation: */
+		"module": "NodeNext",
+		"moduleResolution": "nodenext",
+		"outDir": "dist/",
+		"sourceMap": true,
+		/* Language and Environment: */
+		"lib": ["ES2024"]
+	},
+	"include": ["src/**/*"],
+	"exclude": [
+		"./node_modules",
+		"./dist",
+		"src/**/*test.ts",
+		"src/**/*test.data.ts",
+		"src/**/*test.data.**.ts"
+	]
+}
