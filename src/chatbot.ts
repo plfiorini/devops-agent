@@ -9,6 +9,7 @@ export class ChatBot {
 		"help",
 		"clear",
 		"tools",
+		"status",
 	];
 	private readonly agent: Agent;
 
@@ -28,7 +29,17 @@ export class ChatBot {
 		await this.agent.initialize();
 
 		console.log("Welcome to DevOps Agent!");
-		console.log(`Available commands: ${this.availableCommands.join(", ")}`);
+
+		// Display available providers
+		console.log("\nAvailable AI Providers:");
+		const providers = this.agent.getProviderInfo();
+		for (const provider of providers) {
+			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
+			const defaultMark = provider.isDefault ? " (Default)" : "";
+			console.log(`  • ${provider.name}: ${status}${defaultMark}`);
+		}
+
+		console.log(`\nAvailable commands: ${this.availableCommands.join(", ")}`);
 		console.log('Type "exit" to quit or press CTRL+D');
 		this.rl.prompt();
 	}
@@ -77,6 +88,11 @@ export class ChatBot {
 
 		if (command === "tools") {
 			this.showTools();
+			return;
+		}
+
+		if (command === "status") {
+			this.showStatus();
 			return;
 		}
 
@@ -132,6 +148,7 @@ export class ChatBot {
 		);
 		console.log("  clear                   - Clear conversation history");
 		console.log("  tools                   - Show available tools");
+		console.log("  status                  - Show AI provider status");
 		console.log(
 			"  <any text>              - Send any text directly to the AI Agent",
 		);
@@ -141,5 +158,16 @@ export class ChatBot {
 		console.log("  Explain CI/CD best practices");
 		console.log("  clear");
 		console.log("  tools");
+		console.log("  status");
+	}
+
+	private showStatus(): void {
+		console.log("AI Provider Status:");
+		const providers = this.agent.getProviderInfo();
+		for (const provider of providers) {
+			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
+			const defaultMark = provider.isDefault ? " (Default)" : "";
+			console.log(`  • ${provider.name}: ${status}${defaultMark}`);
+		}
 	}
 }

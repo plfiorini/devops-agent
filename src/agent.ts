@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { AzureOpenAIProvider } from "./models/azureOpenAI.js";
 import { GeminiProvider } from "./models/gemini.js";
 import { SystemPrompt } from "./systemPrompt.js";
 import loadTools from "./tools.js";
@@ -32,7 +33,28 @@ export class Agent {
 	 */
 	async initialize(): Promise<void> {
 		this.tools = await loadTools();
-		this.provider = new GeminiProvider(config.providers.gemini!, this.tools);
+
+		// Initialize provider based on default_provider configuration
+		const defaultProvider = config.default_provider;
+
+		if (defaultProvider === "gemini" && config.providers.gemini?.enabled) {
+			console.log("Initializing with Gemini provider (default)");
+			this.provider = new GeminiProvider(config.providers.gemini, this.tools);
+		} else if (defaultProvider === "azure_openai" && config.providers.azure_openai?.enabled) {
+			console.log("Initializing with Azure OpenAI provider (default)");
+			this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
+		} else {
+			// Fallback to any enabled provider if default is not available
+			if (config.providers.gemini?.enabled) {
+				console.log("Initializing with Gemini provider (fallback)");
+				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
+			} else if (config.providers.azure_openai?.enabled) {
+				console.log("Initializing with Azure OpenAI provider (fallback)");
+				this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
+			} else {
+				throw new Error("No enabled provider configuration found");
+			}
+		}
 	}
 
 	/**
@@ -74,5 +96,30 @@ export class Agent {
 				`Failed to process message: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
+	}
+
+	/**
+	 * Get information about available providers
+	 */
+	getProviderInfo(): { name: string; enabled: boolean; isDefault: boolean }[] {
+		const providers: { name: string; enabled: boolean; isDefault: boolean }[] = [];
+
+		if (config.providers.gemini) {
+			providers.push({
+				name: "Gemini",
+				enabled: config.providers.gemini.enabled || false,
+				isDefault: config.default_provider === "gemini"
+			});
+		}
+
+		if (config.providers.azure_openai) {
+			providers.push({
+				name: "Azure OpenAI",
+				enabled: config.providers.azure_openai.enabled || false,
+				isDefault: config.default_provider === "azure_openai"
+			});
+		}
+
+		return providers;
 	}
 }

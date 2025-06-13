@@ -4,7 +4,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 
 ## Features
 
-- 🤖 **AI-Powered Assistant**: Leverages multiple LLMs for intelligent DevOps guidance
+- 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI) for intelligent DevOps guidance
 - 🛠️ **Tool Integration**: Extensible tool system for executing system commands
 - 💬 **Interactive Chat Interface**: Command-line chat interface with conversation history
 - 🔧 **DevOps Expertise**: Specialized in infrastructure automation and deployment strategies
@@ -24,7 +24,8 @@ src/
 ├── tools.ts           # Tool loading system
 ├── types.ts           # TypeScript type definitions
 ├── models/
-│   └── gemini.ts      # Google Gemini AI provider
+│   ├── gemini.ts      # Google Gemini AI provider
+│   └── azureOpenAI.ts # Azure OpenAI provider
 └── tools/
     └── executeCommand.ts  # Shell command execution tool
 ```
@@ -34,13 +35,16 @@ src/
 - **Agent**: Core orchestrator that manages conversation history and tool execution
 - **ChatBot**: Interactive command-line interface for user interactions
 - **GeminiProvider**: Integration with Google's Gemini AI model
+- **AzureOpenAIProvider**: Integration with Azure OpenAI service
 - **Tools System**: Extensible framework for adding new capabilities
 - **Configuration**: YAML-based configuration management
 
 ## Prerequisites
 
 - Node.js 18+ (ES2024 support required)
-- Google Gemini API key
+- At least one AI provider:
+  - Google Gemini API key, or
+  - Azure OpenAI service endpoint and API key
 - TypeScript knowledge (for development)
 
 ## Installation
@@ -61,12 +65,30 @@ src/
    cp config.yaml.example config.yaml
    ```
    
-   Edit `config.yaml` and add your Google Gemini API key:
+   Edit `config.yaml` and configure your preferred AI provider:
+   
+   **For Google Gemini:**
    ```yaml
+   default_provider: "gemini"
+   
    providers:
      gemini:
+       enabled: true
        api_key: "your-gemini-api-key"
-       model: "your-model"
+       model: "gemini-2.5-flash-preview-04-17"
+   ```
+   
+   **For Azure OpenAI:**
+   ```yaml
+   default_provider: "azure_openai"
+   
+   providers:
+     azure_openai:
+       enabled: true
+       api_key: "your-azure-openai-api-key"
+       endpoint: "https://your-resource-name.openai.azure.com"
+       deployment_name: "your-deployment-name"
+       api_version: "2024-02-15-preview"
    ```
 
 ## Usage
@@ -113,11 +135,23 @@ Once the application is running, you can use the following commands:
 The application uses a YAML configuration file (`config.yaml`) with the following structure:
 
 ```yaml
+default_provider: "gemini"  # Your preferred provider
+
 providers:
   gemini:
+    enabled: true
     api_key: "your-api-key-here"
     model: "your-model"
+    
+  azure_openai:
+    enabled: false
+    api_key: "your-azure-api-key"
+    endpoint: "https://your-resource.openai.azure.com"
+    deployment_name: "your-deployment"
+    api_version: "2024-02-15-preview"
 ```
+
+You can enable multiple providers and specify which one to use as the default.
 
 ## Development
 

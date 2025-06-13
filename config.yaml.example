@@ -1,4 +1,16 @@
+default_provider: "gemini"  # Choose your default provider: "gemini" or "azure_openai"
+
 providers:
+  # Google Gemini Configuration
   gemini:
-    api_key: "API_KEY"
+    enabled: true
+    api_key: "YOUR_GEMINI_API_KEY"
     model: "gemini-2.5-flash-preview-04-17"
+  
+  # Azure OpenAI Configuration
+  # azure_openai:
+  #   enabled: false
+  #   api_key: "YOUR_AZURE_OPENAI_API_KEY"
+  #   endpoint: "https://your-resource-name.openai.azure.com"
+  #   deployment_name: "your-deployment-name"
+  #   api_version: "2024-02-15-preview"  # Optional, defaults to 2024-02-15-preview
