@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { AzureOpenAIProvider } from "./models/azureOpenAI.js";
 import { GeminiProvider } from "./models/gemini.js";
+import { OpenAIProvider } from "./models/openai.js";
 import { SystemPrompt } from "./systemPrompt.js";
 import loadTools from "./tools.js";
 import { Message, Provider, Tool } from "./types.js";
@@ -43,6 +44,9 @@ export class Agent {
 		} else if (defaultProvider === "azure_openai" && config.providers.azure_openai?.enabled) {
 			console.log("Initializing with Azure OpenAI provider (default)");
 			this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
+		} else if (defaultProvider === "openai" && config.providers.openai?.enabled) {
+			console.log("Initializing with OpenAI provider (default)");
+			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
 		} else {
 			// Fallback to any enabled provider if default is not available
 			if (config.providers.gemini?.enabled) {
@@ -51,6 +55,9 @@ export class Agent {
 			} else if (config.providers.azure_openai?.enabled) {
 				console.log("Initializing with Azure OpenAI provider (fallback)");
 				this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
+			} else if (config.providers.openai?.enabled) {
+				console.log("Initializing with OpenAI provider (fallback)");
+				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
 			} else {
 				throw new Error("No enabled provider configuration found");
 			}
@@ -117,6 +124,14 @@ export class Agent {
 				name: "Azure OpenAI",
 				enabled: config.providers.azure_openai.enabled || false,
 				isDefault: config.default_provider === "azure_openai"
+			});
+		}
+
+		if (config.providers.openai) {
+			providers.push({
+				name: "OpenAI",
+				enabled: config.providers.openai.enabled || false,
+				isDefault: config.default_provider === "openai"
 			});
 		}
 

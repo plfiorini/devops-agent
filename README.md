@@ -4,7 +4,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 
 ## Features
 
-- 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI) for intelligent DevOps guidance
+- 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI, OpenAI) for intelligent DevOps guidance
 - 🛠️ **Tool Integration**: Extensible tool system for executing system commands
 - 💬 **Interactive Chat Interface**: Command-line chat interface with conversation history
 - 🔧 **DevOps Expertise**: Specialized in infrastructure automation and deployment strategies
@@ -25,7 +25,8 @@ src/
 ├── types.ts           # TypeScript type definitions
 ├── models/
 │   ├── gemini.ts      # Google Gemini AI provider
-│   └── azureOpenAI.ts # Azure OpenAI provider
+│   ├── azureOpenAI.ts # Azure OpenAI provider
+│   └── openai.ts      # OpenAI provider
 └── tools/
     └── executeCommand.ts  # Shell command execution tool
 ```
@@ -36,6 +37,7 @@ src/
 - **ChatBot**: Interactive command-line interface for user interactions
 - **GeminiProvider**: Integration with Google's Gemini AI model
 - **AzureOpenAIProvider**: Integration with Azure OpenAI service
+- **OpenAIProvider**: Integration with OpenAI models
 - **Tools System**: Extensible framework for adding new capabilities
 - **Configuration**: YAML-based configuration management
 
@@ -44,7 +46,8 @@ src/
 - Node.js 18+ (ES2024 support required)
 - At least one AI provider:
   - Google Gemini API key, or
-  - Azure OpenAI service endpoint and API key
+  - Azure OpenAI service endpoint and API key, or
+  - OpenAI API key
 - TypeScript knowledge (for development)
 
 ## Installation
@@ -89,6 +92,19 @@ src/
        endpoint: "https://your-resource-name.openai.azure.com"
        deployment_name: "your-deployment-name"
        api_version: "2024-02-15-preview"
+   ```
+   
+   **For OpenAI:**
+   ```yaml
+   default_provider: "openai"
+   
+   providers:
+     openai:
+       enabled: true
+       api_key: "your-openai-api-key"
+       model: "gpt-4o"
+       organization: "your-org-id"
+       base_url: "https://api.openai.com/v1"
    ```
 
 ## Usage
@@ -142,13 +158,20 @@ providers:
     enabled: true
     api_key: "your-api-key-here"
     model: "your-model"
-    
+
   azure_openai:
     enabled: false
     api_key: "your-azure-api-key"
     endpoint: "https://your-resource.openai.azure.com"
     deployment_name: "your-deployment"
     api_version: "2024-02-15-preview"
+
+  openai:
+    enabled: false
+    api_key: "your-openai-api-key"
+    model: "gpt-4o"
+    organization: "your-org-id"  # Optional
+    base_url: "https://api.openai.com/v1"  # Optional, for custom endpoints
 ```
 
 You can enable multiple providers and specify which one to use as the default.

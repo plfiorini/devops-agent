@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import YAML from "yaml";
 
-export type Provider = "gemini" | "azure_openai";
+export type Provider = "gemini" | "azure_openai" | "openai";
 
 export type GeminiConfig = {
 	enabled: boolean;
@@ -18,9 +18,18 @@ export type AzureOpenAIConfig = {
 	api_version?: string;
 };
 
+export type OpenAIConfig = {
+	enabled: boolean;
+	api_key: string;
+	model: string;
+	organization?: string;
+	base_url?: string;
+};
+
 type ProvidersConfig = {
 	gemini?: GeminiConfig;
 	azure_openai?: AzureOpenAIConfig;
+	openai?: OpenAIConfig;
 };
 
 type Config = {
@@ -41,7 +50,7 @@ function loadConfig(configPath?: string): Config {
 		}
 
 		// Validate that at least one provider is configured and enabled
-		const hasEnabledProvider = (config.providers.gemini?.enabled) || (config.providers.azure_openai?.enabled);
+		const hasEnabledProvider = (config.providers.gemini?.enabled) || (config.providers.azure_openai?.enabled) || (config.providers.openai?.enabled);
 		if (!hasEnabledProvider) {
 			throw new Error("At least one provider must be configured and enabled");
 		}
@@ -52,6 +61,8 @@ function loadConfig(configPath?: string): Config {
 				config.default_provider = "gemini";
 			} else if (config.providers.azure_openai?.enabled) {
 				config.default_provider = "azure_openai";
+			} else if (config.providers.openai?.enabled) {
+				config.default_provider = "openai";
 			} else {
 				throw new Error("No enabled provider found to set as default");
 			}
@@ -63,6 +74,9 @@ function loadConfig(configPath?: string): Config {
 		}
 		if (config.default_provider === "azure_openai" && !config.providers.azure_openai?.enabled) {
 			throw new Error("Default provider 'azure_openai' is not enabled");
+		}
+		if (config.default_provider === "openai" && !config.providers.openai?.enabled) {
+			throw new Error("Default provider 'openai' is not enabled");
 		}
 
 		return config as Config;
