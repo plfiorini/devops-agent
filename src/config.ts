@@ -50,7 +50,10 @@ function loadConfig(configPath?: string): Config {
 		}
 
 		// Validate that at least one provider is configured and enabled
-		const hasEnabledProvider = (config.providers.gemini?.enabled) || (config.providers.azure_openai?.enabled) || (config.providers.openai?.enabled);
+		const hasEnabledProvider =
+			config.providers.gemini?.enabled ||
+			config.providers.azure_openai?.enabled ||
+			config.providers.openai?.enabled;
 		if (!hasEnabledProvider) {
 			throw new Error("At least one provider must be configured and enabled");
 		}
@@ -69,13 +72,22 @@ function loadConfig(configPath?: string): Config {
 		}
 
 		// Validate that the default provider is actually enabled
-		if (config.default_provider === "gemini" && !config.providers.gemini?.enabled) {
+		if (
+			config.default_provider === "gemini" &&
+			!config.providers.gemini?.enabled
+		) {
 			throw new Error("Default provider 'gemini' is not enabled");
 		}
-		if (config.default_provider === "azure_openai" && !config.providers.azure_openai?.enabled) {
+		if (
+			config.default_provider === "azure_openai" &&
+			!config.providers.azure_openai?.enabled
+		) {
 			throw new Error("Default provider 'azure_openai' is not enabled");
 		}
-		if (config.default_provider === "openai" && !config.providers.openai?.enabled) {
+		if (
+			config.default_provider === "openai" &&
+			!config.providers.openai?.enabled
+		) {
 			throw new Error("Default provider 'openai' is not enabled");
 		}
 

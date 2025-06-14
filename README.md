@@ -7,6 +7,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 - 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI, OpenAI) for intelligent DevOps guidance
 - 🛠️ **Tool Integration**: Extensible tool system for executing system commands
 - 💬 **Interactive Chat Interface**: Command-line chat interface with conversation history
+- 🎨 **Rich Terminal Output**: Beautiful markdown rendering with ANSI colors and formatting
 - 🔧 **DevOps Expertise**: Specialized in infrastructure automation and deployment strategies
 - 📝 **TypeScript**: Fully typed codebase for better development experience
 - 🎯 **Modular Architecture**: Clean separation of concerns with pluggable providers and tools
@@ -27,14 +28,17 @@ src/
 │   ├── gemini.ts      # Google Gemini AI provider
 │   ├── azureOpenAI.ts # Azure OpenAI provider
 │   └── openai.ts      # OpenAI provider
-└── tools/
-    └── executeCommand.ts  # Shell command execution tool
+├── tools/
+│   └── executeCommand.ts  # Shell command execution tool
+└── utils/
+    └── markdownRenderer.ts # Terminal markdown rendering with ANSI colors
 ```
 
 ### Key Components
 
 - **Agent**: Core orchestrator that manages conversation history and tool execution
-- **ChatBot**: Interactive command-line interface for user interactions
+- **ChatBot**: Interactive command-line interface with rich markdown rendering for user interactions
+- **Markdown Renderer**: Converts AI responses from markdown to beautifully formatted terminal output with ANSI colors
 - **GeminiProvider**: Integration with Google's Gemini AI model
 - **AzureOpenAIProvider**: Integration with Azure OpenAI service
 - **OpenAIProvider**: Integration with OpenAI models
@@ -62,6 +66,11 @@ src/
    ```bash
    npm install
    ```
+   
+   This will install all required dependencies including:
+   - AI provider SDKs (Google Gemini, OpenAI, Azure OpenAI)
+   - Markdown rendering libraries (`marked`, `marked-terminal`)
+   - TypeScript and development tools
 
 3. **Configure the application**:
    ```bash
@@ -146,6 +155,20 @@ Once the application is running, you can use the following commands:
 > exit
 ```
 
+## Terminal Output
+
+The DevOps AI Agent features rich terminal output with markdown rendering:
+
+- **Headings**: Color-coded headings with different levels (H1-H6)
+- **Code Blocks**: Syntax-highlighted code blocks with background colors
+- **Inline Code**: `Highlighted inline code` with cyan background
+- **Lists**: Properly formatted bullet points and numbered lists
+- **Links**: Clickable links with underlines and URLs
+- **Emphasis**: **Bold text** and *italic text* formatting
+- **Tables**: Beautiful table formatting with borders
+
+The markdown renderer uses the `marked-terminal` library to convert AI responses into visually appealing terminal output with ANSI escape codes for colors and formatting.
+
 ## Configuration
 
 The application uses a YAML configuration file (`config.yaml`) with the following structure:
@@ -223,3 +246,8 @@ This project is licensed under the AGPL-3.0-only License. See the LICENSE file f
 **Tool execution failures**
 - Check that the system has the necessary permissions for command execution
 - Verify that required system tools are installed
+
+**Markdown rendering issues**
+- If terminal output appears garbled, ensure your terminal supports ANSI escape codes
+- For best results, use a modern terminal emulator (VS Code integrated terminal, iTerm2, Windows Terminal)
+- Some older terminals may not support all formatting features

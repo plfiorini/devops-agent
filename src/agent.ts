@@ -41,10 +41,19 @@ export class Agent {
 		if (defaultProvider === "gemini" && config.providers.gemini?.enabled) {
 			console.log("Initializing with Gemini provider (default)");
 			this.provider = new GeminiProvider(config.providers.gemini, this.tools);
-		} else if (defaultProvider === "azure_openai" && config.providers.azure_openai?.enabled) {
+		} else if (
+			defaultProvider === "azure_openai" &&
+			config.providers.azure_openai?.enabled
+		) {
 			console.log("Initializing with Azure OpenAI provider (default)");
-			this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
-		} else if (defaultProvider === "openai" && config.providers.openai?.enabled) {
+			this.provider = new AzureOpenAIProvider(
+				config.providers.azure_openai,
+				this.tools,
+			);
+		} else if (
+			defaultProvider === "openai" &&
+			config.providers.openai?.enabled
+		) {
 			console.log("Initializing with OpenAI provider (default)");
 			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
 		} else {
@@ -54,7 +63,10 @@ export class Agent {
 				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
 			} else if (config.providers.azure_openai?.enabled) {
 				console.log("Initializing with Azure OpenAI provider (fallback)");
-				this.provider = new AzureOpenAIProvider(config.providers.azure_openai, this.tools);
+				this.provider = new AzureOpenAIProvider(
+					config.providers.azure_openai,
+					this.tools,
+				);
 			} else if (config.providers.openai?.enabled) {
 				console.log("Initializing with OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
@@ -109,13 +121,14 @@ export class Agent {
 	 * Get information about available providers
 	 */
 	getProviderInfo(): { name: string; enabled: boolean; isDefault: boolean }[] {
-		const providers: { name: string; enabled: boolean; isDefault: boolean }[] = [];
+		const providers: { name: string; enabled: boolean; isDefault: boolean }[] =
+			[];
 
 		if (config.providers.gemini) {
 			providers.push({
 				name: "Gemini",
 				enabled: config.providers.gemini.enabled || false,
-				isDefault: config.default_provider === "gemini"
+				isDefault: config.default_provider === "gemini",
 			});
 		}
 
@@ -123,7 +136,7 @@ export class Agent {
 			providers.push({
 				name: "Azure OpenAI",
 				enabled: config.providers.azure_openai.enabled || false,
-				isDefault: config.default_provider === "azure_openai"
+				isDefault: config.default_provider === "azure_openai",
 			});
 		}
 
@@ -131,7 +144,7 @@ export class Agent {
 			providers.push({
 				name: "OpenAI",
 				enabled: config.providers.openai.enabled || false,
-				isDefault: config.default_provider === "openai"
+				isDefault: config.default_provider === "openai",
 			});
 		}
 

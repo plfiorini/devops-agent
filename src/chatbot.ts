@@ -1,5 +1,6 @@
 import * as readline from "readline";
 import { Agent } from "./agent.js";
+import { printMarkdown } from "./utils/markdownRenderer.js";
 
 export class ChatBot {
 	private readonly rl: readline.Interface;
@@ -51,11 +52,11 @@ export class ChatBot {
 			if (command === "exit") {
 				this.rl.close();
 				return;
-			} else {
-				// Handle other commands here
-				await this.handleCommand(command);
-				this.rl.prompt();
 			}
+
+			// Handle other commands here
+			await this.handleCommand(command);
+			this.rl.prompt();
 		});
 
 		// Handle CTRL+D (EOF)
@@ -118,7 +119,8 @@ export class ChatBot {
 
 			const response = await this.agent.processMessage(prompt);
 
-			console.log("\nAI Agent:", response);
+			console.log("\nAI Agent:");
+			await printMarkdown(response);
 		} catch (error) {
 			console.error(
 				"Error communicating with AI Agent:",
