@@ -1,0 +1,15 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/base:debian",
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "24"
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": ["GitHub.copilot", "GitHub.copilot-chat", "biomejs.biome"]
+		}
+	},
+	"postCreateCommand": "npm ci"
+}
