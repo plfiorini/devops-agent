@@ -1,7 +1,13 @@
 import * as util from "node:util";
 import { OpenAI } from "openai";
-import { OpenAIConfig } from "../config.js";
-import { Provider, Request, Response, Tool, ToolProperty } from "../types.js";
+import type { OpenAIConfig } from "../config.js";
+import type {
+	Provider,
+	Request,
+	Response,
+	Tool,
+	ToolProperty,
+} from "../types.js";
 
 function convertToolProperties(
 	properties: Record<string, ToolProperty>,

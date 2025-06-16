@@ -1,19 +1,19 @@
+import * as util from "node:util";
 import {
-	FunctionDeclaration,
-	FunctionDeclarationSchemaProperty,
-	GenerativeModel,
+	type FunctionDeclaration,
+	type FunctionDeclarationSchemaProperty,
+	type GenerativeModel,
 	GoogleGenerativeAI,
 	SchemaType,
 } from "@google/generative-ai";
-import * as util from "node:util";
-import { GeminiConfig } from "../config.js";
+import type { GeminiConfig } from "../config.js";
 import {
-	Message,
-	Provider,
-	Request,
-	Response,
-	Tool,
-	ToolProperty,
+	type Message,
+	type Provider,
+	type Request,
+	type Response,
+	type Tool,
+	type ToolProperty,
 	ToolSchemaType,
 } from "../types.js";
 

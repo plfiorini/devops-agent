@@ -60,17 +60,17 @@ export type ToolSchema = {
 
 export type ToolCall = {
 	name: string;
-	args: Record<string, any>;
+	args: Record<string, unknown>;
 };
 
 export type ToolResult = {
 	name: string;
-	result: any;
+	result: unknown;
 	error?: string;
 };
 
 export interface Tool {
 	schema: ToolSchema;
 
-	run(args: object): Promise<any>;
+	run(args: object): Promise<unknown>;
 }

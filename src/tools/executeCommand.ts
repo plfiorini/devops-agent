@@ -1,4 +1,4 @@
-import { Tool, ToolSchema, ToolSchemaType } from "../types.js";
+import { type Tool, type ToolSchema, ToolSchemaType } from "../types.js";
 
 class ExecuteCommandTool implements Tool {
 	schema: ToolSchema = {
@@ -24,8 +24,8 @@ class ExecuteCommandTool implements Tool {
 		command,
 		workingDirectory,
 	}: { command: string; workingDirectory?: string }): Promise<string> {
-		const { exec } = await import("child_process");
-		const { promisify } = await import("util");
+		const { exec } = await import("node:child_process");
+		const { promisify } = await import("node:util");
 		const execAsync = promisify(exec);
 
 		try {
@@ -37,8 +37,10 @@ class ExecuteCommandTool implements Tool {
 			if (stderr) result += `${result ? "\n" : ""}STDERR:\n${stderr}`;
 
 			return result || "Command executed successfully (no output)";
-		} catch (error: any) {
-			throw new Error(`Command failed: ${error.message}`);
+		} catch (error: unknown) {
+			throw new Error(
+				`Command failed: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 }

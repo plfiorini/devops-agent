@@ -4,7 +4,7 @@ import { GeminiProvider } from "./models/gemini.js";
 import { OpenAIProvider } from "./models/openai.js";
 import { SystemPrompt } from "./systemPrompt.js";
 import loadTools from "./tools.js";
-import { Message, Provider, Tool } from "./types.js";
+import type { Message, Provider, Tool } from "./types.js";
 
 export class Agent {
 	private provider?: Provider = undefined;

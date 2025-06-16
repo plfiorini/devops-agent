@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { Tool } from "./types.js";
+import type { Tool } from "./types.js";
 
 const toolsDir = join(import.meta.dirname, "tools");
 
