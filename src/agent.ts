@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { AnthropicProvider } from "./models/anthropic.js";
 import { GeminiProvider } from "./models/gemini.js";
 import { OpenAIProvider } from "./models/openai.js";
 import { SystemPrompt } from "./systemPrompt.js";
@@ -55,6 +56,15 @@ export class Agent {
 		) {
 			console.log("Initializing with OpenAI provider (default)");
 			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
+		} else if (
+			defaultProvider === "anthropic" &&
+			config.providers.anthropic?.enabled
+		) {
+			console.log("Initializing with Anthropic provider (default)");
+			this.provider = new AnthropicProvider(
+				config.providers.anthropic,
+				this.tools,
+			);
 		} else {
 			// Fallback to any enabled provider if default is not available
 			if (config.providers.gemini?.enabled) {
@@ -69,6 +79,12 @@ export class Agent {
 			} else if (config.providers.openai?.enabled) {
 				console.log("Initializing with OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
+			} else if (config.providers.anthropic?.enabled) {
+				console.log("Initializing with Anthropic provider (fallback)");
+				this.provider = new AnthropicProvider(
+					config.providers.anthropic,
+					this.tools,
+				);
 			} else {
 				throw new Error("No enabled provider configuration found");
 			}

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import YAML from "yaml";
 
-export type Provider = "gemini" | "openai" | "azure_openai";
+export type Provider = "gemini" | "openai" | "azure_openai" | "anthropic";
 
 export type GeminiConfig = {
 	enabled: boolean;
@@ -26,12 +26,20 @@ export type AzureOpenAIConfig = {
 	api_version?: string;
 };
 
+export type AnthropicConfig = {
+	enabled: boolean;
+	api_key: string;
+	model: string;
+	base_url?: string;
+};
+
 export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;
 
 type ProvidersConfig = {
 	gemini?: GeminiConfig;
 	openai?: OpenAIConfig;
 	azure_openai?: AzureOpenAIConfig;
+	anthropic?: AnthropicConfig;
 };
 
 type Config = {
@@ -55,7 +63,8 @@ function loadConfig(configPath?: string): Config {
 		const hasEnabledProvider =
 			config.providers.gemini?.enabled ||
 			config.providers.azure_openai?.enabled ||
-			config.providers.openai?.enabled;
+			config.providers.openai?.enabled ||
+			config.providers.anthropic?.enabled;
 		if (!hasEnabledProvider) {
 			throw new Error("At least one provider must be configured and enabled");
 		}
@@ -68,6 +77,8 @@ function loadConfig(configPath?: string): Config {
 				config.default_provider = "azure_openai";
 			} else if (config.providers.openai?.enabled) {
 				config.default_provider = "openai";
+			} else if (config.providers.anthropic?.enabled) {
+				config.default_provider = "anthropic";
 			} else {
 				throw new Error("No enabled provider found to set as default");
 			}
@@ -91,6 +102,12 @@ function loadConfig(configPath?: string): Config {
 			!config.providers.openai?.enabled
 		) {
 			throw new Error("Default provider 'openai' is not enabled");
+		}
+		if (
+			config.default_provider === "anthropic" &&
+			!config.providers.anthropic?.enabled
+		) {
+			throw new Error("Default provider 'anthropic' is not enabled");
 		}
 
 		return config as Config;
