@@ -1,6 +1,14 @@
 import * as util from "node:util";
-import { OpenAI } from "openai";
-import type { OpenAIConfig } from "../config.js";
+import { AzureOpenAI, type ClientOptions, OpenAI } from "openai";
+import type {
+	ChatCompletionMessageParam,
+	ChatCompletionTool,
+} from "openai/resources";
+import type {
+	AzureOpenAIConfig,
+	OpenAIConfig,
+	OpenAIConfigType,
+} from "../config.js";
 import type {
 	Provider,
 	Request,
@@ -11,10 +19,10 @@ import type {
 
 function convertToolProperties(
 	properties: Record<string, ToolProperty>,
-): Record<string, any> {
-	const converted: Record<string, any> = {};
+): Record<string, unknown> {
+	const converted: Record<string, unknown> = {};
 	for (const [key, prop] of Object.entries(properties)) {
-		const property: any = {
+		const property: Record<string, unknown> = {
 			type: prop.type,
 			description: prop.description,
 		};
@@ -28,7 +36,7 @@ function convertToolProperties(
 	return converted;
 }
 
-function convertTool(tool: Tool): any {
+function convertTool(tool: Tool): ChatCompletionTool {
 	return {
 		type: "function",
 		function: {
@@ -44,33 +52,60 @@ function convertTool(tool: Tool): any {
 }
 
 export class OpenAIProvider implements Provider {
-	private client: OpenAI;
+	private client: OpenAI | AzureOpenAI;
 	private model: string;
 	private tools: Tool[] = [];
 
-	constructor(config: OpenAIConfig, tools: Tool[]) {
-		if (!config.api_key) {
-			throw new Error("OpenAI API key is required");
+	constructor(config: OpenAIConfigType, tools: Tool[]) {
+		if ("model" in config) {
+			if (!config.api_key) {
+				throw new Error("OpenAI API key is required");
+			}
+
+			if (!config.model) {
+				throw new Error("OpenAI model is required");
+			}
+
+			const clientConfig: ClientOptions = {
+				apiKey: config.api_key,
+			};
+
+			if (config.organization) {
+				clientConfig.organization = config.organization;
+			}
+
+			if (config.base_url) {
+				clientConfig.baseURL = config.base_url;
+			}
+
+			this.client = new OpenAI(clientConfig);
+
+			this.model = config.model;
+		} else if ("deployment_name" in config) {
+			//} else if ("type" in config && config.type === "azure_openai") {
+			if (!config.api_key) {
+				throw new Error("Azure OpenAI API key is required");
+			}
+
+			if (!config.endpoint) {
+				throw new Error("Azure OpenAI endpoint is required");
+			}
+
+			if (!config.deployment_name) {
+				throw new Error("Azure OpenAI deployment name is required");
+			}
+
+			this.client = new AzureOpenAI({
+				apiKey: config.api_key,
+				endpoint: config.endpoint,
+				apiVersion: config.api_version || "2024-02-15-preview",
+			});
+
+			this.model = config.deployment_name;
+		} else {
+			throw new Error("Invalid OpenAI configuration type");
 		}
 
-		if (!config.model) {
-			throw new Error("OpenAI model is required");
-		}
-
-		const clientConfig: any = {
-			apiKey: config.api_key,
-		};
-
-		if (config.organization) {
-			clientConfig.organization = config.organization;
-		}
-
-		if (config.base_url) {
-			clientConfig.baseURL = config.base_url;
-		}
-
-		this.client = new OpenAI(clientConfig);
-		this.model = config.model;
 		this.tools = tools;
 	}
 
@@ -170,8 +205,10 @@ export class OpenAIProvider implements Provider {
 		}
 	}
 
-	private convertMessagesToOpenAIFormat(request: Request): any[] {
-		const messages: any[] = [
+	private convertMessagesToOpenAIFormat(
+		request: Request,
+	): Array<ChatCompletionMessageParam> {
+		const messages: ChatCompletionMessageParam[] = [
 			{
 				role: "system",
 				content: request.systemPrompt,

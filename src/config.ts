@@ -2,20 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import YAML from "yaml";
 
-export type Provider = "gemini" | "azure_openai" | "openai";
+export type Provider = "gemini" | "openai" | "azure_openai";
 
 export type GeminiConfig = {
 	enabled: boolean;
 	api_key: string;
 	model: string;
-};
-
-export type AzureOpenAIConfig = {
-	enabled: boolean;
-	api_key: string;
-	endpoint: string;
-	deployment_name: string;
-	api_version?: string;
 };
 
 export type OpenAIConfig = {
@@ -26,10 +18,20 @@ export type OpenAIConfig = {
 	base_url?: string;
 };
 
+export type AzureOpenAIConfig = {
+	enabled: boolean;
+	api_key: string;
+	endpoint: string;
+	deployment_name: string;
+	api_version?: string;
+};
+
+export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;
+
 type ProvidersConfig = {
 	gemini?: GeminiConfig;
-	azure_openai?: AzureOpenAIConfig;
 	openai?: OpenAIConfig;
+	azure_openai?: AzureOpenAIConfig;
 };
 
 type Config = {

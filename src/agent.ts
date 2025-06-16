@@ -1,5 +1,4 @@
 import { config } from "./config.js";
-import { AzureOpenAIProvider } from "./models/azureOpenAI.js";
 import { GeminiProvider } from "./models/gemini.js";
 import { OpenAIProvider } from "./models/openai.js";
 import { SystemPrompt } from "./systemPrompt.js";
@@ -46,7 +45,7 @@ export class Agent {
 			config.providers.azure_openai?.enabled
 		) {
 			console.log("Initializing with Azure OpenAI provider (default)");
-			this.provider = new AzureOpenAIProvider(
+			this.provider = new OpenAIProvider(
 				config.providers.azure_openai,
 				this.tools,
 			);
@@ -63,7 +62,7 @@ export class Agent {
 				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
 			} else if (config.providers.azure_openai?.enabled) {
 				console.log("Initializing with Azure OpenAI provider (fallback)");
-				this.provider = new AzureOpenAIProvider(
+				this.provider = new OpenAIProvider(
 					config.providers.azure_openai,
 					this.tools,
 				);

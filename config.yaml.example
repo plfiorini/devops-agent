@@ -1,4 +1,4 @@
-default_provider: "gemini"  # Choose your default provider: "gemini", "azure_openai", or "openai"
+default_provider: "gemini"  # Choose your default provider: "gemini", "openai", "azure_openai"
 
 providers:
   # Google Gemini Configuration
@@ -7,14 +7,6 @@ providers:
     api_key: "YOUR_GEMINI_API_KEY"
     model: "gemini-2.5-flash-preview-04-17"
   
-  # Azure OpenAI Configuration
-  # azure_openai:
-  #   enabled: false
-  #   api_key: "YOUR_AZURE_OPENAI_API_KEY"
-  #   endpoint: "https://your-resource-name.openai.azure.com"
-  #   deployment_name: "your-deployment-name"
-  #   api_version: "2024-02-15-preview"  # Optional, defaults to 2024-02-15-preview
-  
   # OpenAI Configuration
   # openai:
   #   enabled: false
@@ -22,3 +14,11 @@ providers:
   #   model: "gpt-4o"
   #   organization: "your-org-id"  # Optional
   #   base_url: "https://api.openai.com/v1"  # Optional, for custom endpoints
+  
+  # Azure OpenAI Configuration
+  # azure_openai:
+  #   enabled: false
+  #   api_key: "YOUR_AZURE_OPENAI_API_KEY"
+  #   endpoint: "https://your-resource-name.openai.azure.com"
+  #   deployment_name: "your-deployment-name"
+  #   api_version: "2024-02-15-preview"  # Optional, defaults to 2024-02-15-preview
