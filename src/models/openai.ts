@@ -17,6 +17,9 @@ import type {
 	ToolProperty,
 } from "../types.js";
 
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 4096;
+
 function convertToolProperties(
 	properties: Record<string, ToolProperty>,
 ): Record<string, unknown> {
@@ -55,6 +58,8 @@ export class OpenAIProvider implements Provider {
 	private client: OpenAI | AzureOpenAI;
 	private model: string;
 	private tools: Tool[] = [];
+	private temperature: number;
+	private maxTokens: number;
 
 	constructor(config: OpenAIConfigType, tools: Tool[]) {
 		if ("model" in config) {
@@ -82,7 +87,6 @@ export class OpenAIProvider implements Provider {
 
 			this.model = config.model;
 		} else if ("deployment_name" in config) {
-			//} else if ("type" in config && config.type === "azure_openai") {
 			if (!config.api_key) {
 				throw new Error("Azure OpenAI API key is required");
 			}
@@ -107,6 +111,21 @@ export class OpenAIProvider implements Provider {
 		}
 
 		this.tools = tools;
+
+		this.temperature = config.temperature ?? DEFAULT_TEMPERATURE;
+		if (this.temperature < 0 || this.temperature > 2) {
+			throw new Error("temperature must be between 0 and 2");
+		}
+
+		this.maxTokens = config.max_tokens ?? DEFAULT_MAX_TOKENS;
+		if (this.maxTokens && this.maxTokens <= 0) {
+			throw new Error("max_tokens must be greater than 0");
+		}
+		if (this.maxTokens && this.maxTokens > 4096) {
+			console.warn(
+				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
+			);
+		}
 	}
 
 	async chatBot(request: Request): Promise<Response> {
@@ -127,6 +146,8 @@ export class OpenAIProvider implements Provider {
 				messages: messages,
 				tools: openAITools.length > 0 ? openAITools : undefined,
 				tool_choice: openAITools.length > 0 ? "auto" : undefined,
+				temperature: this.temperature,
+				max_tokens: this.maxTokens,
 			});
 
 			const responseMessage = chatCompletion.choices[0]?.message;
@@ -179,6 +200,8 @@ export class OpenAIProvider implements Provider {
 				const followUpCompletion = await this.client.chat.completions.create({
 					model: this.model,
 					messages: followUpMessages,
+					temperature: this.temperature,
+					max_tokens: this.maxTokens,
 				});
 
 				const followUpResponse = followUpCompletion.choices[0]?.message;

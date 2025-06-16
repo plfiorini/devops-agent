@@ -13,6 +13,9 @@ import type {
 	ToolProperty,
 } from "../types.js";
 
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 4096;
+
 function convertToolProperties(
 	properties: Record<string, ToolProperty>,
 ): Record<string, unknown> {
@@ -48,6 +51,8 @@ export class AnthropicProvider implements Provider {
 	private client: Anthropic;
 	private model: string;
 	private tools: Tool[] = [];
+	private temperature: number;
+	private maxTokens: number;
 
 	constructor(config: AnthropicConfig, tools: Tool[]) {
 		if (!config.api_key) {
@@ -69,6 +74,21 @@ export class AnthropicProvider implements Provider {
 		this.client = new Anthropic(clientConfig);
 		this.model = config.model;
 		this.tools = tools;
+
+		this.temperature = config.temperature || DEFAULT_TEMPERATURE;
+		if (this.temperature < 0 || this.temperature > 1) {
+			throw new Error("temperature must be between 0 and 1");
+		}
+
+		this.maxTokens = config.max_tokens || DEFAULT_MAX_TOKENS;
+		if (this.maxTokens && this.maxTokens <= 0) {
+			throw new Error("max_tokens must be a positive integer");
+		}
+		if (this.maxTokens && this.maxTokens > 4096) {
+			console.warn(
+				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
+			);
+		}
 	}
 
 	async chatBot(request: Request): Promise<Response> {
@@ -86,7 +106,8 @@ export class AnthropicProvider implements Provider {
 			// Make the API call
 			const response = await this.client.messages.create({
 				model: this.model,
-				max_tokens: 4096,
+				temperature: this.temperature,
+				max_tokens: this.maxTokens,
 				system: request.systemPrompt,
 				messages: messages,
 				tools: anthropicTools.length > 0 ? anthropicTools : undefined,
@@ -151,7 +172,8 @@ export class AnthropicProvider implements Provider {
 
 				const followUpResponse = await this.client.messages.create({
 					model: this.model,
-					max_tokens: 4096,
+					temperature: this.temperature,
+					max_tokens: this.maxTokens,
 					system: request.systemPrompt,
 					messages: followUpMessages,
 				});

@@ -8,6 +8,8 @@ export type GeminiConfig = {
 	enabled: boolean;
 	api_key: string;
 	model: string;
+	temperature?: number;
+	max_tokens?: number;
 };
 
 export type OpenAIConfig = {
@@ -16,6 +18,8 @@ export type OpenAIConfig = {
 	model: string;
 	organization?: string;
 	base_url?: string;
+	temperature?: number;
+	max_tokens?: number;
 };
 
 export type AzureOpenAIConfig = {
@@ -24,6 +28,8 @@ export type AzureOpenAIConfig = {
 	endpoint: string;
 	deployment_name: string;
 	api_version?: string;
+	temperature?: number;
+	max_tokens?: number;
 };
 
 export type AnthropicConfig = {
@@ -31,6 +37,8 @@ export type AnthropicConfig = {
 	api_key: string;
 	model: string;
 	base_url?: string;
+	temperature?: number;
+	max_tokens?: number;
 };
 
 export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;

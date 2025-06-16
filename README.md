@@ -88,6 +88,8 @@ src/
        enabled: true
        api_key: "your-gemini-api-key"
        model: "gemini-2.5-flash-preview-04-17"
+       temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
+       max_tokens: 4096  # Optional, maximum tokens in response
    ```
    
    **For Azure OpenAI:**
@@ -101,6 +103,8 @@ src/
        endpoint: "https://your-resource-name.openai.azure.com"
        deployment_name: "your-deployment-name"
        api_version: "2024-02-15-preview"
+       temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
+       max_tokens: 4096  # Optional, maximum tokens in response
    ```
    
    **For OpenAI:**
@@ -114,6 +118,8 @@ src/
        model: "gpt-4o"
        organization: "your-org-id"
        base_url: "https://api.openai.com/v1"
+       temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
+       max_tokens: 4096  # Optional, maximum tokens in response
    ```
 
 ## Usage
@@ -181,6 +187,8 @@ providers:
     enabled: true
     api_key: "your-api-key-here"
     model: "your-model"
+    temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
+    max_tokens: 4096  # Optional, maximum tokens in response
 
   azure_openai:
     enabled: false
@@ -188,6 +196,8 @@ providers:
     endpoint: "https://your-resource.openai.azure.com"
     deployment_name: "your-deployment"
     api_version: "2024-02-15-preview"
+    temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
+    max_tokens: 4096  # Optional, maximum tokens in response
 
   openai:
     enabled: false
@@ -195,6 +205,16 @@ providers:
     model: "gpt-4o"
     organization: "your-org-id"  # Optional
     base_url: "https://api.openai.com/v1"  # Optional, for custom endpoints
+    temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
+    max_tokens: 4096  # Optional, maximum tokens in response
+
+  anthropic:
+    enabled: false
+    api_key: "your-anthropic-api-key"
+    model: "claude-3-5-sonnet-20241022"
+    base_url: "https://api.anthropic.com"  # Optional, for custom endpoints
+    temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
+    max_tokens: 4096  # Optional, maximum tokens in response
 ```
 
 You can enable multiple providers and specify which one to use as the default.

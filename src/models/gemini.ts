@@ -17,6 +17,9 @@ import {
 	ToolSchemaType,
 } from "../types.js";
 
+const DEFAULT_TEMPERATURE = 0.2;
+const DEFAULT_MAX_TOKENS = 1024;
+
 function convertToolProperties(
 	properties: Record<string, ToolProperty>,
 ): Record<string, FunctionDeclarationSchemaProperty> {
@@ -70,6 +73,8 @@ export class GeminiProvider implements Provider {
 	private genAI: GoogleGenerativeAI;
 	private model: GenerativeModel;
 	private tools: Tool[] = [];
+	private temperature: number;
+	private maxTokens: number;
 
 	constructor(config: GeminiConfig, tools: Tool[]) {
 		if (!config.api_key) {
@@ -80,10 +85,29 @@ export class GeminiProvider implements Provider {
 		const functionDeclarations = tools.map((tool) => convertTool(tool));
 		// console.debug("Function declarations:", functionDeclarations);
 
+		this.temperature = config.temperature || DEFAULT_TEMPERATURE;
+		if (this.temperature < 0 || this.temperature > 1) {
+			throw new Error("temperature must be between 0 and 1");
+		}
+
+		this.maxTokens = config.max_tokens || DEFAULT_MAX_TOKENS;
+		if (this.maxTokens && this.maxTokens <= 0) {
+			throw new Error("max_tokens must be greater than 0");
+		}
+		if (this.maxTokens && this.maxTokens > 4096) {
+			console.warn(
+				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
+			);
+		}
+
 		this.genAI = new GoogleGenerativeAI(config.api_key);
 		this.model = this.genAI.getGenerativeModel({
 			model: config.model || "gemini-1.5-pro",
 			tools: [{ functionDeclarations }],
+			generationConfig: {
+				temperature: this.temperature,
+				maxOutputTokens: this.maxTokens,
+			},
 		});
 		this.tools = tools;
 	}
