@@ -12,39 +12,6 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 - 📝 **TypeScript**: Fully typed codebase for better development experience
 - 🎯 **Modular Architecture**: Clean separation of concerns with pluggable providers and tools
 
-## Architecture
-
-The project follows a modular architecture:
-
-```
-src/
-├── agent.ts           # Main AI agent orchestrator
-├── chatbot.ts         # Interactive CLI interface
-├── config.ts          # Configuration management
-├── index.ts           # Application entry point
-├── tools.ts           # Tool loading system
-├── types.ts           # TypeScript type definitions
-├── models/
-│   ├── gemini.ts      # Google Gemini AI provider
-│   ├── openai.ts      # OpenAI provider
-│   └── anthropic.ts   # Anthropic Claude provider
-├── tools/
-│   └── executeCommand.ts  # Shell command execution tool
-└── utils/
-    └── markdownRenderer.ts # Terminal markdown rendering with ANSI colors
-```
-
-### Key Components
-
-- **Agent**: Core orchestrator that manages conversation history and tool execution
-- **ChatBot**: Interactive command-line interface with rich markdown rendering for user interactions
-- **Markdown Renderer**: Converts AI responses from markdown to beautifully formatted terminal output with ANSI colors
-- **GeminiProvider**: Integration with Google's Gemini AI model
-- **OpenAIProvider**: Integration with OpenAI models (including Azure OpenAI)
-- **AnthropicProvider**: Integration with Anthropic's Claude models
-- **Tools System**: Extensible framework for adding new capabilities
-- **Configuration**: YAML-based configuration management
-
 ## Prerequisites
 
 - Node.js 18+ (ES2024 support required)
@@ -78,64 +45,7 @@ src/
    cp config.yaml.example config.yaml
    ```
    
-   Edit `config.yaml` and configure your preferred AI provider:
-   
-   **For Google Gemini:**
-   ```yaml
-   default_provider: "gemini"
-   
-   providers:
-     gemini:
-       enabled: true
-       api_key: "your-gemini-api-key"
-       model: "gemini-2.5-flash-preview-04-17"
-       temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
-       max_tokens: 4096  # Optional, maximum tokens in response
-   ```
-   
-   **For Azure OpenAI:**
-   ```yaml
-   default_provider: "azure_openai"
-   
-   providers:
-     azure_openai:
-       enabled: true
-       api_key: "your-azure-openai-api-key"
-       endpoint: "https://your-resource-name.openai.azure.com"
-       deployment_name: "your-deployment-name"
-       api_version: "2024-02-15-preview"
-       temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
-       max_tokens: 4096  # Optional, maximum tokens in response
-   ```
-   
-   **For OpenAI:**
-   ```yaml
-   default_provider: "openai"
-   
-   providers:
-     openai:
-       enabled: true
-       api_key: "your-openai-api-key"
-       model: "gpt-4o"
-       organization: "your-org-id"
-       base_url: "https://api.openai.com/v1"
-       temperature: 0.7  # Optional, controls randomness (0.0 to 2.0)
-       max_tokens: 4096  # Optional, maximum tokens in response
-   ```
-   
-   **For Anthropic:**
-   ```yaml
-   default_provider: "anthropic"
-   
-   providers:
-     anthropic:
-       enabled: true
-       api_key: "your-anthropic-api-key"
-       model: "claude-3-5-sonnet-20241022"
-       base_url: "https://api.anthropic.com"  # Optional
-       temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
-       max_tokens: 4096  # Optional, maximum tokens in response
-   ```
+   Edit `config.yaml` and [configure your preferred AI provider](docs/configuration.md).
 
 ## Usage
 
@@ -264,29 +174,7 @@ providers:
 
 You can enable multiple providers and specify which one to use as the default.
 
-## Supported Models
-
-### Google Gemini
-- `gemini-2.5-flash-preview-04-17` (Recommended)
-- `gemini-1.5-pro`
-- `gemini-1.5-flash`
-
-### OpenAI
-- `gpt-4o` (Recommended)
-- `gpt-4o-mini`
-- `gpt-4-turbo`
-- `gpt-3.5-turbo`
-
-### Azure OpenAI
-- Any model deployed in your Azure OpenAI service
-- Common deployments: `gpt-4`, `gpt-4-turbo`, `gpt-35-turbo`
-
-### Anthropic Claude
-- `claude-3-5-sonnet-20241022` (Recommended)
-- `claude-3-5-haiku-20241022`
-- `claude-3-opus-20240229`
-- `claude-3-sonnet-20240229`
-- `claude-3-haiku-20240307`
+See the [documentation on providers](docs/providers.md) for more information.
 
 ### Configuration Parameters
 
