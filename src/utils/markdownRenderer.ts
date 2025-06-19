@@ -1,5 +1,6 @@
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
+import logger from "../logger.js";
 
 // Configure marked to use the terminal renderer with custom styling
 marked.use(
@@ -19,7 +20,7 @@ export async function renderMarkdown(markdownText: string): Promise<string> {
 		const result = await marked.parse(markdownText);
 		return result;
 	} catch (error) {
-		console.error("Error rendering markdown:", error);
+		logger.error("Error rendering markdown:", error);
 		// Fallback to plain text if rendering fails
 		return markdownText;
 	}
@@ -31,5 +32,5 @@ export async function renderMarkdown(markdownText: string): Promise<string> {
  */
 export async function printMarkdown(markdownText: string): Promise<void> {
 	const rendered = await renderMarkdown(markdownText);
-	console.log(rendered);
+	logger.log(rendered);
 }
