@@ -37,3 +37,41 @@ providers:
   #   base_url: "https://api.anthropic.com"  # Optional, for custom endpoints
   #   temperature: 0.7  # Optional, controls randomness (0.0 to 1.0)
   #   max_tokens: 4096  # Optional, maximum tokens in response
+
+# Model Context Protocol (MCP) Server Configuration
+# MCP servers provide additional tools, resources, and prompts to the agent
+mcp:
+  servers:
+    # Example: File system MCP server
+    # filesystem:
+    #   enabled: false
+    #   name: "File System"
+    #   description: "Provides file system operations"
+    #   command: "npx"
+    #   args: ["@modelcontextprotocol/server-filesystem", "/path/to/workspace"]
+    
+    # Example: Git MCP server
+    # git:
+    #   enabled: false
+    #   name: "Git"
+    #   description: "Provides Git repository operations"
+    #   command: "npx"
+    #   args: ["@modelcontextprotocol/server-git", "--repository", "/path/to/repo"]
+    
+    # Example: Docker MCP server
+    # docker:
+    #   enabled: false
+    #   name: "Docker"
+    #   description: "Provides Docker container management"
+    #   command: "npx"
+    #   args: ["@modelcontextprotocol/server-docker"]
+    
+    # Example: Kubernetes MCP server
+    # kubernetes:
+    #   enabled: false
+    #   name: "Kubernetes"
+    #   description: "Provides Kubernetes cluster operations"
+    #   command: "npx"
+    #   args: ["@modelcontextprotocol/server-kubernetes"]
+    #   env:
+    #     KUBECONFIG: "/path/to/kubeconfig"

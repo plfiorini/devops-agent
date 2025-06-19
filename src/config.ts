@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import YAML from "yaml";
+import type { MCPServerConfig } from "./types/mcp.js";
 
 export type Provider = "gemini" | "openai" | "azure_openai" | "anthropic";
 
@@ -53,6 +54,9 @@ type ProvidersConfig = {
 type Config = {
 	default_provider?: Provider;
 	providers: ProvidersConfig;
+	mcp?: {
+		servers: Record<string, MCPServerConfig>;
+	};
 };
 
 function loadConfig(configPath?: string): Config {
