@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import logger from "./logger.ts";
+// import logger from "./logger.ts";
 import type { Tool } from "./types.ts";
 
 const toolsDir = join(import.meta.dirname, "tools");

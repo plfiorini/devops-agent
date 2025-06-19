@@ -139,7 +139,7 @@ export class ChatBot {
 		logger.log("Available tools:");
 		const tools = this.agent.getAvailableTools();
 		for (const tool of tools) {
-			logger.log(`  • ${tool.schema.name}: ${tool.schema.description}`);
+			logger.log(`  • ${tool.name}: ${tool.description}`);
 		}
 	}
 
