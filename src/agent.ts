@@ -1,16 +1,20 @@
 import { config } from "./config.ts";
 import logger from "./logger.ts";
+import { MCPManager } from "./mcpManager.ts";
 import { AnthropicProvider } from "./models/anthropic.ts";
 import { GeminiProvider } from "./models/gemini.ts";
 import { OpenAIProvider } from "./models/openai.ts";
 import { SystemPrompt } from "./systemPrompt.ts";
 import loadTools from "./tools.ts";
+import { MCPListPromptsTool, MCPListResourcesTool, MCPListToolsTool, MCPServerStatusTool } from "./tools/mcpManagementTools.ts";
+import { MCPToolProxy } from "./tools/mcpToolProxy.ts";
 import type { Message, Provider, Tool } from "./types.ts";
 
 export class Agent {
 	private provider?: Provider = undefined;
 	private conversationHistory: Message[] = [];
 	private tools: Tool[] = [];
+	private mcpManager: MCPManager = new MCPManager();
 
 	public getAvailableTools(): Tool[] {
 		return this.tools;
@@ -35,6 +39,9 @@ export class Agent {
 	 */
 	async initialize(): Promise<void> {
 		this.tools = await loadTools();
+
+		// Initialize MCP servers and tools
+		await this.initializeMCP();
 
 		// Initialize provider based on default_provider configuration
 		const defaultProvider = config.default_provider;
@@ -88,6 +95,57 @@ export class Agent {
 				);
 			} else {
 				throw new Error("No enabled provider configuration found");
+			}
+		}
+	}
+
+	/**
+	 * Initialize MCP servers and add MCP tools
+	 */
+	private async initializeMCP(): Promise<void> {
+		// Connect to configured MCP servers
+		if (config.mcp?.servers) {
+			console.debug("Initializing MCP servers...");
+
+			for (const [serverId, serverConfig] of Object.entries(
+				config.mcp.servers,
+			)) {
+				if (serverConfig.enabled) {
+					try {
+						await this.mcpManager.connectServer(serverId, serverConfig);
+						console.log(`✓ Connected to MCP server: ${serverConfig.name}`);
+					} catch (error) {
+						console.error(
+							`✗ Failed to connect to MCP server ${serverId}:`,
+							error,
+						);
+					}
+				}
+			}
+
+			// Add MCP management tools
+			this.tools.push(new MCPListToolsTool(this.mcpManager));
+			this.tools.push(new MCPListResourcesTool(this.mcpManager));
+			this.tools.push(new MCPListPromptsTool(this.mcpManager));
+			this.tools.push(new MCPServerStatusTool(this.mcpManager));
+
+			// Get available tools from MCP servers and create proxy tools
+			try {
+				const mcpTools = await this.mcpManager.getAvailableTools();
+				for (const mcpTool of mcpTools) {
+					const proxyTool = new MCPToolProxy(
+						this.mcpManager,
+						mcpTool.serverId,
+						mcpTool.serverName,
+						mcpTool.name,
+						mcpTool.description,
+						mcpTool.inputSchema,
+					);
+					this.tools.push(proxyTool);
+				}
+				console.debug(`✓ Added ${mcpTools.length} MCP tools`);
+			} catch (error) {
+				console.error("Failed to get MCP tools:", error);
 			}
 		}
 	}
@@ -165,5 +223,20 @@ export class Agent {
 		}
 
 		return providers;
+	}
+
+	/**
+	 * Cleanup resources, disconnect from MCP servers
+	 */
+	async cleanup(): Promise<void> {
+		console.log("Cleaning up agent resources...");
+		await this.mcpManager.disconnectAll();
+	}
+
+	/**
+	 * Get MCP manager instance for advanced operations
+	 */
+	getMCPManager(): MCPManager {
+		return this.mcpManager;
 	}
 }

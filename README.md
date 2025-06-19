@@ -6,6 +6,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 
 - 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI, OpenAI, Anthropic) for intelligent DevOps guidance
 - 🛠️ **Tool Integration**: Extensible tool system for executing system commands
+- 🔌 **MCP Support**: Model Context Protocol integration for external tools and resources
 - 💬 **Interactive Chat Interface**: Command-line chat interface with conversation history
 - 🎨 **Rich Terminal Output**: Beautiful markdown rendering with ANSI colors and formatting
 - 🔧 **DevOps Expertise**: Specialized in infrastructure automation and deployment strategies
@@ -73,6 +74,7 @@ Once the application is running, you can use the following commands:
 - `help` - Show available commands
 - `ask <question>` - Ask the AI agent a specific question
 - `tools` - List available tools
+- `mcp` - Show MCP server status and available tools
 - `clear` - Clear conversation history
 - `exit` - Exit the application
 
@@ -175,6 +177,14 @@ providers:
 You can enable multiple providers and specify which one to use as the default.
 
 See the [documentation on providers](docs/providers.md) for more information.
+
+## Documentation
+
+- [Configuration Guide](docs/configuration.md) - Detailed configuration options
+- [Providers](docs/providers.md) - AI provider setup and configuration
+- [Tools](docs/tools.md) - Available tools and how to create new ones
+- [MCP Support](docs/mcp.md) - Model Context Protocol integration
+- [Architecture](docs/architecture.md) - System architecture and design
 
 ### Configuration Parameters
 

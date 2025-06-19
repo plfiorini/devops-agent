@@ -29,21 +29,15 @@ export class ChatBot {
 	}
 
 	public async start(): Promise<void> {
-		await this.agent.initialize();
-
 		console.log(styleText(["blueBright", "bold"], "Welcome to DevOps Agent!"));
 
-		// Display available providers
-		logger.log("\nAvailable AI Providers:");
-		const providers = this.agent.getProviderInfo();
-		for (const provider of providers) {
-			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
-			const defaultMark = provider.isDefault ? " (Default)" : "";
-			logger.log(`  • ${provider.name}: ${status}${defaultMark}`);
-		}
+		await this.agent.initialize();
 
-		logger.log(`\nAvailable commands: ${this.availableCommands.join(", ")}`);
-		logger.log('Type "exit" to quit or press CTRL+D');
+		// Show information
+		await this.showStatus();
+		this.showCommands();
+
+		logger.log('\nType "exit" to quit or press CTRL+D');
 		this.rl.prompt();
 	}
 
@@ -52,6 +46,7 @@ export class ChatBot {
 			const command = line.trim().toLowerCase();
 
 			if (command === "exit") {
+				await this.agent.cleanup();
 				this.rl.close();
 				return;
 			}
@@ -62,8 +57,9 @@ export class ChatBot {
 		});
 
 		// Handle CTRL+D (EOF)
-		this.rl.on("close", () => {
+		this.rl.on("close", async () => {
 			logger.log("\n👋 Good Bye!");
+			await this.agent.cleanup();
 			process.exit(0);
 		});
 
@@ -95,7 +91,7 @@ export class ChatBot {
 		}
 
 		if (command === "status") {
-			this.showStatus();
+			await this.showStatus();
 			return;
 		}
 
@@ -143,6 +139,10 @@ export class ChatBot {
 		}
 	}
 
+	private showCommands(): void {
+		console.log(`Available commands: ${this.availableCommands.join(", ")}`);
+	}
+
 	private showHelp(): void {
 		logger.log("Available commands:");
 		logger.log("  exit                    - Exit the application");
@@ -152,7 +152,7 @@ export class ChatBot {
 		);
 		logger.log("  clear                   - Clear conversation history");
 		logger.log("  tools                   - Show available tools");
-		logger.log("  status                  - Show AI provider status");
+		logger.log("  status                  - Show status");
 		logger.log(
 			"  <any text>              - Send any text directly to the AI Agent",
 		);
@@ -165,13 +165,54 @@ export class ChatBot {
 		logger.log("  status");
 	}
 
-	private showStatus(): void {
+	private async showStatus(): Promise<void> {
+		this.showAgentStatus();
+		await this.showMCPStatus();
+	}
+
+	private showAgentStatus(): void {
 		logger.log("AI Provider Status:");
 		const providers = this.agent.getProviderInfo();
 		for (const provider of providers) {
 			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
 			const defaultMark = provider.isDefault ? " (Default)" : "";
 			logger.log(`  • ${provider.name}: ${status}${defaultMark}`);
+		}
+	}
+
+	private async showMCPStatus(): Promise<void> {
+		console.log("MCP Server Status:");
+		try {
+			const mcpManager = this.agent.getMCPManager();
+			const servers = mcpManager.getConnectedServers();
+
+			if (servers.length === 0) {
+				console.log("  No MCP servers configured");
+				return;
+			}
+
+			for (const server of servers) {
+				const status = mcpManager.isServerConnected(server.id)
+					? "✓ Connected"
+					: "✗ Disconnected";
+				console.log(`  • ${server.name}: ${status}`);
+				console.log(`    Command: ${server.config.command}`);
+				console.log(`    Args: ${server.config.args.join(" ")}`);
+			}
+
+			// Show available tools count
+			const tools = await mcpManager.getAvailableTools();
+			console.log(`\nMCP Tools: ${tools.length} available`);
+
+			// Show available resources count
+			const resources = await mcpManager.getAvailableResources();
+			console.log(`MCP Resources: ${resources.length} available`);
+
+			// Show available prompts count
+			const prompts = await mcpManager.getAvailablePrompts();
+			console.log(`MCP Prompts: ${prompts.length} available`);
+		} catch (error) {
+			console.error("Error getting MCP status:", error);
 		}
 	}
 }
