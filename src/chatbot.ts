@@ -1,5 +1,7 @@
+import { styleText } from "node:util";
 import * as readline from "readline";
 import { Agent } from "./agent.js";
+import logger from "./logger.js";
 import { printMarkdown } from "./utils/markdownRenderer.js";
 
 export class ChatBot {
@@ -29,19 +31,19 @@ export class ChatBot {
 	public async start(): Promise<void> {
 		await this.agent.initialize();
 
-		console.log("Welcome to DevOps Agent!");
+		console.log(styleText(["blueBright", "bold"], "Welcome to DevOps Agent!"));
 
 		// Display available providers
-		console.log("\nAvailable AI Providers:");
+		logger.log("\nAvailable AI Providers:");
 		const providers = this.agent.getProviderInfo();
 		for (const provider of providers) {
 			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
 			const defaultMark = provider.isDefault ? " (Default)" : "";
-			console.log(`  • ${provider.name}: ${status}${defaultMark}`);
+			logger.log(`  • ${provider.name}: ${status}${defaultMark}`);
 		}
 
-		console.log(`\nAvailable commands: ${this.availableCommands.join(", ")}`);
-		console.log('Type "exit" to quit or press CTRL+D');
+		logger.log(`\nAvailable commands: ${this.availableCommands.join(", ")}`);
+		logger.log('Type "exit" to quit or press CTRL+D');
 		this.rl.prompt();
 	}
 
@@ -61,13 +63,13 @@ export class ChatBot {
 
 		// Handle CTRL+D (EOF)
 		this.rl.on("close", () => {
-			console.log("\n👋 Good Bye!");
+			logger.log("\n👋 Good Bye!");
 			process.exit(0);
 		});
 
 		// Handle CTRL+C
 		this.rl.on("SIGINT", () => {
-			console.log('\nReceived SIGINT. Type "exit" to quit or press CTRL+D.');
+			logger.log('\nReceived SIGINT. Type "exit" to quit or press CTRL+D.');
 			this.rl.prompt();
 		});
 	}
@@ -102,7 +104,7 @@ export class ChatBot {
 			if (prompt) {
 				await this.sendToAgent(prompt);
 			} else {
-				console.log(
+				logger.log(
 					'Please provide a question after "ask". Example: ask How do I deploy a Docker container?',
 				);
 			}
@@ -115,14 +117,14 @@ export class ChatBot {
 
 	private async sendToAgent(prompt: string): Promise<void> {
 		try {
-			console.log("Processing request...");
+			logger.log("Processing request...");
 
 			const response = await this.agent.processMessage(prompt);
 
-			console.log("\nAI Agent:");
+			logger.log("\nAI Agent:");
 			await printMarkdown(response);
 		} catch (error) {
-			console.error(
+			logger.error(
 				"Error communicating with AI Agent:",
 				error instanceof Error ? error.message : error,
 			);
@@ -134,42 +136,42 @@ export class ChatBot {
 	}
 
 	private showTools(): void {
-		console.log("Available tools:");
+		logger.log("Available tools:");
 		const tools = this.agent.getAvailableTools();
 		for (const tool of tools) {
-			console.log(`  • ${tool.schema.name}: ${tool.schema.description}`);
+			logger.log(`  • ${tool.schema.name}: ${tool.schema.description}`);
 		}
 	}
 
 	private showHelp(): void {
-		console.log("Available commands:");
-		console.log("  exit                    - Exit the application");
-		console.log("  help                    - Show this help message");
-		console.log(
+		logger.log("Available commands:");
+		logger.log("  exit                    - Exit the application");
+		logger.log("  help                    - Show this help message");
+		logger.log(
 			"  ask <question>          - Ask the AI Agent a specific question",
 		);
-		console.log("  clear                   - Clear conversation history");
-		console.log("  tools                   - Show available tools");
-		console.log("  status                  - Show AI provider status");
-		console.log(
+		logger.log("  clear                   - Clear conversation history");
+		logger.log("  tools                   - Show available tools");
+		logger.log("  status                  - Show AI provider status");
+		logger.log(
 			"  <any text>              - Send any text directly to the AI Agent",
 		);
-		console.log("Examples:");
-		console.log("  ask How do I deploy a Docker container?");
-		console.log("  What is Kubernetes?");
-		console.log("  Explain CI/CD best practices");
-		console.log("  clear");
-		console.log("  tools");
-		console.log("  status");
+		logger.log("Examples:");
+		logger.log("  ask How do I deploy a Docker container?");
+		logger.log("  What is Kubernetes?");
+		logger.log("  Explain CI/CD best practices");
+		logger.log("  clear");
+		logger.log("  tools");
+		logger.log("  status");
 	}
 
 	private showStatus(): void {
-		console.log("AI Provider Status:");
+		logger.log("AI Provider Status:");
 		const providers = this.agent.getProviderInfo();
 		for (const provider of providers) {
 			const status = provider.enabled ? "✓ Enabled" : "✗ Disabled";
 			const defaultMark = provider.isDefault ? " (Default)" : "";
-			console.log(`  • ${provider.name}: ${status}${defaultMark}`);
+			logger.log(`  • ${provider.name}: ${status}${defaultMark}`);
 		}
 	}
 }

@@ -5,6 +5,7 @@ import type {
 	MessageParam,
 } from "@anthropic-ai/sdk/resources";
 import type { AnthropicConfig } from "../config.js";
+import logger from "../logger.js";
 import type {
 	Provider,
 	Request,
@@ -85,7 +86,7 @@ export class AnthropicProvider implements Provider {
 			throw new Error("max_tokens must be a positive integer");
 		}
 		if (this.maxTokens && this.maxTokens > 4096) {
-			console.warn(
+			logger.warn(
 				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
 			);
 		}
@@ -132,7 +133,7 @@ export class AnthropicProvider implements Provider {
 								throw new Error(`Tool not found: ${toolUse.name}`);
 							}
 
-							console.log(
+							logger.log(
 								`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
 								JSON.stringify(toolUse.input),
 							);
@@ -210,7 +211,7 @@ export class AnthropicProvider implements Provider {
 
 			return { content: textContent };
 		} catch (error) {
-			console.error("Anthropic API error:", error);
+			logger.error("Anthropic API error:", error);
 			throw new Error(
 				`Failed to get response from Anthropic: ${
 					error instanceof Error ? error.message : String(error)

@@ -9,6 +9,7 @@ import type {
 	OpenAIConfig,
 	OpenAIConfigType,
 } from "../config.js";
+import logger from "../logger.js";
 import type {
 	Provider,
 	Request,
@@ -122,7 +123,7 @@ export class OpenAIProvider implements Provider {
 			throw new Error("max_tokens must be greater than 0");
 		}
 		if (this.maxTokens && this.maxTokens > 4096) {
-			console.warn(
+			logger.warn(
 				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
 			);
 		}
@@ -169,7 +170,7 @@ export class OpenAIProvider implements Provider {
 								throw new Error(`Tool not found: ${toolCall.function.name}`);
 							}
 
-							console.log(
+							logger.log(
 								`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
 								toolCall.function.arguments,
 							);
@@ -219,7 +220,7 @@ export class OpenAIProvider implements Provider {
 
 			return { content: responseMessage.content };
 		} catch (error) {
-			console.error("OpenAI API error:", error);
+			logger.error("OpenAI API error:", error);
 			throw new Error(
 				`Failed to get response from OpenAI: ${
 					error instanceof Error ? error.message : String(error)

@@ -7,6 +7,7 @@ import {
 	SchemaType,
 } from "@google/generative-ai";
 import type { GeminiConfig } from "../config.js";
+import logger from "../logger.js";
 import {
 	type Message,
 	type Provider,
@@ -81,9 +82,9 @@ export class GeminiProvider implements Provider {
 			throw new Error("Google API key is required");
 		}
 
-		// console.debug("Tools", tools);
+		// logger.debug("Tools", tools);
 		const functionDeclarations = tools.map((tool) => convertTool(tool));
-		// console.debug("Function declarations:", functionDeclarations);
+		// logger.debug("Function declarations:", functionDeclarations);
 
 		this.temperature = config.temperature || DEFAULT_TEMPERATURE;
 		if (this.temperature < 0 || this.temperature > 1) {
@@ -95,7 +96,7 @@ export class GeminiProvider implements Provider {
 			throw new Error("max_tokens must be greater than 0");
 		}
 		if (this.maxTokens && this.maxTokens > 4096) {
-			console.warn(
+			logger.warn(
 				"max_tokens is set to a value greater than 4096, which may lead to unexpected behavior.",
 			);
 		}
@@ -159,7 +160,7 @@ export class GeminiProvider implements Provider {
 						try {
 							for (const tool of this.tools) {
 								if (tool.schema.name === call.name) {
-									console.log(
+									logger.log(
 										`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
 										call.args,
 									);
@@ -198,7 +199,7 @@ export class GeminiProvider implements Provider {
 
 			return { content: response.text() };
 		} catch (error) {
-			console.error("Gemini API error:", error);
+			logger.error("Gemini API error:", error);
 			throw new Error(
 				`Failed to get response from Gemini: ${error instanceof Error ? error.message : String(error)}`,
 			);
