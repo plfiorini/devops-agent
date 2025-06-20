@@ -6,8 +6,8 @@ import {
 	GoogleGenerativeAI,
 	SchemaType,
 } from "@google/generative-ai";
-import type { GeminiConfig } from "../config.js";
-import logger from "../logger.js";
+import type { GeminiConfig } from "../config.ts";
+import logger from "../logger.ts";
 import {
 	type Message,
 	type Provider,
@@ -16,7 +16,7 @@ import {
 	type Tool,
 	type ToolProperty,
 	ToolSchemaType,
-} from "../types.js";
+} from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_MAX_TOKENS = 1024;

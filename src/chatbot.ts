@@ -1,8 +1,8 @@
 import { styleText } from "node:util";
 import * as readline from "readline";
-import { Agent } from "./agent.js";
-import logger from "./logger.js";
-import { printMarkdown } from "./utils/markdownRenderer.js";
+import { Agent } from "./agent.ts";
+import logger from "./logger.ts";
+import { printMarkdown } from "./utils/markdownRenderer.ts";
 
 export class ChatBot {
 	private readonly rl: readline.Interface;

@@ -17,6 +17,9 @@
 	"author": "Pier Luigi Fiorini",
 	"license": "AGPL-3.0-only",
 	"main": "src/index.ts",
+	"engines": {
+		"node": ">=24.0.0"
+	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"build": "tsc",
@@ -25,8 +28,8 @@
 		"format": "biome format",
 		"format:write": "biome format --write",
 		"lint": "biome lint",
-		"start": "tsx src/index.ts",
-		"dev": "tsx watch src/index.ts"
+		"start": "node --disable-warning=ExperimentalWarning  --experimental-transform-types src/index.ts",
+		"dev": "node --disable-warning=ExperimentalWarning  --experimental-transform-types --watch src/index.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",

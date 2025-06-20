@@ -8,15 +8,15 @@ import type {
 	AzureOpenAIConfig,
 	OpenAIConfig,
 	OpenAIConfigType,
-} from "../config.js";
-import logger from "../logger.js";
+} from "../config.ts";
+import logger from "../logger.ts";
 import type {
 	Provider,
 	Request,
 	Response,
 	Tool,
 	ToolProperty,
-} from "../types.js";
+} from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 4096;

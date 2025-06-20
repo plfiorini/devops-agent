@@ -3,12 +3,15 @@
 		/* Base Options: */
 		"esModuleInterop": true,
 		"skipLibCheck": true,
-		"target": "ES2024",
+		"target": "esnext",
 		"resolveJsonModule": true,
 		"moduleDetection": "force",
 		/* Strictness: */
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
+		"rewriteRelativeImportExtensions": true,
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
 		/* Transpilation: */
 		"module": "NodeNext",
 		"moduleResolution": "nodenext",

@@ -1,6 +1,6 @@
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
-import logger from "../logger.js";
+import logger from "../logger.ts";
 
 // Configure marked to use the terminal renderer with custom styling
 marked.use(

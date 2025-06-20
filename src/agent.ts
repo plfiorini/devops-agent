@@ -1,11 +1,11 @@
-import { config } from "./config.js";
-import logger from "./logger.js";
-import { AnthropicProvider } from "./models/anthropic.js";
-import { GeminiProvider } from "./models/gemini.js";
-import { OpenAIProvider } from "./models/openai.js";
-import { SystemPrompt } from "./systemPrompt.js";
-import loadTools from "./tools.js";
-import type { Message, Provider, Tool } from "./types.js";
+import { config } from "./config.ts";
+import logger from "./logger.ts";
+import { AnthropicProvider } from "./models/anthropic.ts";
+import { GeminiProvider } from "./models/gemini.ts";
+import { OpenAIProvider } from "./models/openai.ts";
+import { SystemPrompt } from "./systemPrompt.ts";
+import loadTools from "./tools.ts";
+import type { Message, Provider, Tool } from "./types.ts";
 
 export class Agent {
 	private provider?: Provider = undefined;

@@ -1,4 +1,4 @@
-import { type Tool, type ToolSchema, ToolSchemaType } from "../types.js";
+import { type Tool, type ToolSchema, ToolSchemaType } from "../types.ts";
 
 class ExecuteCommandTool implements Tool {
 	schema: ToolSchema = {

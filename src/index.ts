@@ -1,4 +1,4 @@
-import { ChatBot } from "./chatbot.js";
+import { ChatBot } from "./chatbot.ts";
 
 // Start the application
 const bot = new ChatBot();

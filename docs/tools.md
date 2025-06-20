@@ -17,7 +17,7 @@ To add a new tool:
 2. Implement the `Tool` interface:
 
 ```typescript
-import { Tool, ToolSchema, ToolSchemaType } from "../types.js";
+import { Tool, ToolSchema, ToolSchemaType } from "../types.ts";
 
 class MyTool implements Tool {
   schema: ToolSchema = {

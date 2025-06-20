@@ -14,7 +14,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 
 ## Prerequisites
 
-- Node.js 18+ (ES2024 support required)
+- Node.js 24+ (ES2024 support required)
 - At least one AI provider:
   - Google Gemini API key, or
   - Azure OpenAI service endpoint and API key, or
