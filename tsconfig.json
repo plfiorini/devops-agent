@@ -10,7 +10,7 @@
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"rewriteRelativeImportExtensions": true,
-		"erasableSyntaxOnly": true,
+		"erasableSyntaxOnly": false,
 		"verbatimModuleSyntax": true,
 		/* Transpilation: */
 		"module": "NodeNext",
