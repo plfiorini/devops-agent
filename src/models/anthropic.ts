@@ -1,4 +1,3 @@
-import * as util from "node:util";
 import Anthropic from "@anthropic-ai/sdk";
 import type {
 	Tool as AnthropicTool,
@@ -6,45 +5,16 @@ import type {
 } from "@anthropic-ai/sdk/resources";
 import type { AnthropicConfig } from "../config.ts";
 import logger from "../logger.ts";
-import type {
-	Provider,
-	Request,
-	Response,
-	Tool,
-	ToolProperty,
-} from "../types.ts";
+import type { Provider, Request, Response, Tool } from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 4096;
 
-function convertToolProperties(
-	properties: Record<string, ToolProperty>,
-): Record<string, unknown> {
-	const converted: Record<string, unknown> = {};
-	for (const [key, prop] of Object.entries(properties)) {
-		const property: Record<string, unknown> = {
-			type: prop.type,
-			description: prop.description,
-		};
-
-		if (prop.enum) {
-			property.enum = prop.enum;
-		}
-
-		converted[key] = property;
-	}
-	return converted;
-}
-
 function convertTool(tool: Tool): AnthropicTool {
 	return {
-		name: tool.schema.name,
-		description: tool.schema.description,
-		input_schema: {
-			type: "object",
-			properties: convertToolProperties(tool.schema.parameters.properties),
-			required: tool.schema.parameters.required,
-		},
+		name: tool.name,
+		description: tool.description,
+		input_schema: tool.inputSchema,
 	};
 }
 
@@ -97,6 +67,11 @@ export class AnthropicProvider implements Provider {
 			throw new Error("Anthropic client is not initialized");
 		}
 
+		const toolSchemas = new Map(this.tools.map((tool) => [tool.name, tool]));
+		const toolExecutors = new Map(
+			this.tools.map((tool) => [tool.name, tool.execute]),
+		);
+
 		try {
 			// Convert messages to Anthropic format
 			const messages = this.convertMessagesToAnthropicFormat(request);
@@ -125,26 +100,31 @@ export class AnthropicProvider implements Provider {
 				const toolResults = await Promise.all(
 					toolUseBlocks.map(async (toolUse) => {
 						try {
-							const tool = this.tools.find(
-								(t) => t.schema.name === toolUse.name,
-							);
-
-							if (!tool) {
+							if (!toolSchemas.has(toolUse.name)) {
 								throw new Error(`Tool not found: ${toolUse.name}`);
 							}
 
-							logger.log(
-								`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
-								JSON.stringify(toolUse.input),
-							);
+							const tool = toolSchemas.get(toolUse.name);
+							if (!tool) {
+								throw new Error(`Tool not found: ${toolUse.name}`);
+							}
+							const executor = toolExecutors.get(toolUse.name);
 
-							const toolResult = await tool.run(toolUse.input as object);
+							if (tool && executor) {
+								const validatedArgs = tool.inputSchema.parse(
+									toolUse.input as object,
+								);
+								const rawResult = await executor(validatedArgs);
+								const validatedResult = tool.outputSchema.parse(rawResult);
 
-							return {
-								type: "tool_result" as const,
-								tool_use_id: toolUse.id,
-								content: JSON.stringify(toolResult),
-							};
+								return {
+									type: "tool_result" as const,
+									tool_use_id: toolUse.id,
+									content: JSON.stringify(validatedResult),
+								};
+							}
+
+							throw new Error(`Tool executor not found for: ${toolUse.name}`);
 						} catch (error) {
 							return {
 								type: "tool_result" as const,

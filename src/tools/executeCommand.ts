@@ -1,32 +1,31 @@
-import { type Tool, type ToolSchema, ToolSchemaType } from "../types.ts";
+import { z } from "zod";
+import type { Tool } from "../types.ts";
+
+const InputSchema = z.object({
+	command: z.string().describe("The shell command to execute"),
+	workingDirectory: z
+		.string()
+		.optional()
+		.describe("The working directory to execute the command in (optional)"),
+});
+
+const OutputSchema = z
+	.string()
+	.describe(
+		"The output of the executed command, including both stdout and stderr",
+	);
 
 class ExecuteCommandTool implements Tool {
-	schema: ToolSchema = {
-		name: "execute_command",
-		description: "Execute a shell command on the system",
-		parameters: {
-			properties: {
-				command: {
-					type: ToolSchemaType.STRING,
-					description: "The shell command to execute",
-				},
-				workingDirectory: {
-					type: ToolSchemaType.STRING,
-					description:
-						"The working directory to execute the command in (optional)",
-				},
-			},
-			required: ["command"],
-		},
-	};
-
-	async run({
-		command,
-		workingDirectory,
-	}: { command: string; workingDirectory?: string }): Promise<string> {
+	name = "execute_command";
+	description = "Execute a shell command on the system";
+	inputSchema = InputSchema;
+	outputSchema = OutputSchema;
+	execute = async (args: z.infer<typeof InputSchema>) => {
 		const { exec } = await import("node:child_process");
 		const { promisify } = await import("node:util");
 		const execAsync = promisify(exec);
+
+		const { command, workingDirectory } = args;
 
 		try {
 			const options = workingDirectory ? { cwd: workingDirectory } : {};
@@ -42,7 +41,7 @@ class ExecuteCommandTool implements Tool {
 				`Command failed: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
-	}
+	};
 }
 
 export default new ExecuteCommandTool();

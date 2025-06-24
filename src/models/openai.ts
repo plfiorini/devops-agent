@@ -1,58 +1,31 @@
-import * as util from "node:util";
 import { AzureOpenAI, type ClientOptions, OpenAI } from "openai";
 import type {
 	ChatCompletionMessageParam,
 	ChatCompletionTool,
 } from "openai/resources";
-import type {
-	AzureOpenAIConfig,
-	OpenAIConfig,
-	OpenAIConfigType,
-} from "../config.ts";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { OpenAIConfigType } from "../config.ts";
 import logger from "../logger.ts";
-import type {
-	Provider,
-	Request,
-	Response,
-	Tool,
-	ToolProperty,
-} from "../types.ts";
+import type { Provider, Request, Response, Tool } from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 4096;
 
-function convertToolProperties(
-	properties: Record<string, ToolProperty>,
-): Record<string, unknown> {
-	const converted: Record<string, unknown> = {};
-	for (const [key, prop] of Object.entries(properties)) {
-		const property: Record<string, unknown> = {
-			type: prop.type,
-			description: prop.description,
-		};
+function getOpenAITools(appTools: Tool[]): ChatCompletionTool[] {
+	return appTools.map((tool) => {
+		// Convert the Zod schema to a JSON schema
+		const jsonSchema = zodToJsonSchema(tool.inputSchema);
+		const parameters = jsonSchema as Record<string, unknown>;
 
-		if (prop.enum) {
-			property.enum = prop.enum;
-		}
-
-		converted[key] = property;
-	}
-	return converted;
-}
-
-function convertTool(tool: Tool): ChatCompletionTool {
-	return {
-		type: "function",
-		function: {
-			name: tool.schema.name,
-			description: tool.schema.description,
-			parameters: {
-				type: "object",
-				properties: convertToolProperties(tool.schema.parameters.properties),
-				required: tool.schema.parameters.required,
+		return {
+			type: "function",
+			function: {
+				name: tool.name,
+				description: tool.description,
+				parameters,
 			},
-		},
-	};
+		};
+	});
 }
 
 export class OpenAIProvider implements Provider {
@@ -134,18 +107,23 @@ export class OpenAIProvider implements Provider {
 			throw new Error("OpenAI client is not initialized");
 		}
 
+		const toolSchemas = new Map(this.tools.map((tool) => [tool.name, tool]));
+		const toolExecutors = new Map(
+			this.tools.map((tool) => [tool.name, tool.execute]),
+		);
+
 		try {
 			// Convert messages to OpenAI format
 			const messages = this.convertMessagesToOpenAIFormat(request);
 
-			// Prepare tools for OpenAI format
-			const openAITools = this.tools.map((tool) => convertTool(tool));
+			// Conver t tools to OpenAI format
+			const openAITools = getOpenAITools(this.tools);
 
 			// Make the API call
 			const chatCompletion = await this.client.chat.completions.create({
 				model: this.model,
 				messages: messages,
-				tools: openAITools.length > 0 ? openAITools : undefined,
+				tools: openAITools,
 				tool_choice: openAITools.length > 0 ? "auto" : undefined,
 				temperature: this.temperature,
 				max_tokens: this.maxTokens,
@@ -160,32 +138,37 @@ export class OpenAIProvider implements Provider {
 			if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
 				// Execute tool calls
 				const toolResults = await Promise.all(
-					responseMessage.tool_calls.map(async (toolCall) => {
+					responseMessage.tool_calls.map(async (call) => {
 						try {
-							const tool = this.tools.find(
-								(t) => t.schema.name === toolCall.function.name,
-							);
-
-							if (!tool) {
-								throw new Error(`Tool not found: ${toolCall.function.name}`);
+							if (!toolSchemas.has(call.function.name)) {
+								throw new Error(`Tool not found: ${call.function.name}`);
 							}
 
-							logger.log(
-								`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
-								toolCall.function.arguments,
+							const tool = toolSchemas.get(call.function.name);
+							if (!tool) {
+								throw new Error(`Tool not found: ${call.function.name}`);
+							}
+							const executor = toolExecutors.get(call.function.name);
+
+							if (tool && executor) {
+								const args = JSON.parse(call.function.arguments);
+								const validatedArgs = tool.inputSchema.parse(args);
+								const rawResult = await executor(validatedArgs);
+								const validatedResult = tool.outputSchema.parse(rawResult);
+
+								return {
+									tool_call_id: call.id,
+									role: "tool" as const,
+									content: JSON.stringify(validatedResult),
+								};
+							}
+
+							throw new Error(
+								`Tool executor not found for: ${call.function.name}`,
 							);
-
-							const args = JSON.parse(toolCall.function.arguments);
-							const toolResult = await tool.run(args);
-
-							return {
-								tool_call_id: toolCall.id,
-								role: "tool" as const,
-								content: JSON.stringify(toolResult),
-							};
 						} catch (error) {
 							return {
-								tool_call_id: toolCall.id,
+								tool_call_id: call.id,
 								role: "tool" as const,
 								content: JSON.stringify({
 									error: error instanceof Error ? error.message : String(error),

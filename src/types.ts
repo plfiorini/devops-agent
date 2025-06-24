@@ -2,6 +2,8 @@
  * Providers
  */
 
+import type z from "zod/v4";
+
 export type Message = {
 	role: "user" | "assistant" | "system";
 	content: string;
@@ -24,53 +26,19 @@ export interface Provider {
  * Tools
  */
 
-export enum ToolSchemaType {
-	/** String type. */
-	STRING = "string",
-	/** Number type. */
-	NUMBER = "number",
-	/** Integer type. */
-	INTEGER = "integer",
-	/** Boolean type. */
-	BOOLEAN = "boolean",
+// biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility in the tool's schema type.
+export type ToolSchema = z.ZodType<any, any>;
+
+export interface GenericTool<
+	Input extends ToolSchema,
+	Output extends ToolSchema,
+> {
+	name: string;
+	description: string;
+	inputSchema: Input;
+	outputSchema: Output;
+	execute: (args: z.infer<Input>) => Promise<z.infer<Output>> | z.infer<Output>;
 }
 
-export type ToolProperty = {
-	/** The type of the parameter. */
-	type: ToolSchemaType;
-	/** A description of the parameter. */
-	description: string;
-	/** An optional enum for the parameter. */
-	enum?: string[];
-};
-
-export type ToolSchema = {
-	/** Unique name of the tool. */
-	name: string;
-	/** Description of what the tool does. */
-	description: string;
-	/** The schema for the tool's parameters. */
-	parameters: {
-		/** The list of properties of the tool. */
-		properties: Record<string, ToolProperty>;
-		/** A list of required parameters for the tool. */
-		required: string[];
-	};
-};
-
-export type ToolCall = {
-	name: string;
-	args: Record<string, unknown>;
-};
-
-export type ToolResult = {
-	name: string;
-	result: unknown;
-	error?: string;
-};
-
-export interface Tool {
-	schema: ToolSchema;
-
-	run(args: object): Promise<unknown>;
-}
+// biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility in the tool's schema type.
+export type Tool = GenericTool<any, any>;

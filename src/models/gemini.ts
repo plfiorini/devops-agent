@@ -1,73 +1,38 @@
-import * as util from "node:util";
 import {
-	type FunctionDeclaration,
-	type FunctionDeclarationSchemaProperty,
+	type Tool as GeminiTool,
 	type GenerativeModel,
 	GoogleGenerativeAI,
 	SchemaType,
 } from "@google/generative-ai";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import type { GeminiConfig } from "../config.ts";
 import logger from "../logger.ts";
-import {
-	type Message,
-	type Provider,
-	type Request,
-	type Response,
-	type Tool,
-	type ToolProperty,
-	ToolSchemaType,
-} from "../types.ts";
+import type { Message, Provider, Request, Response, Tool } from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_MAX_TOKENS = 1024;
 
-function convertToolProperties(
-	properties: Record<string, ToolProperty>,
-): Record<string, FunctionDeclarationSchemaProperty> {
-	const converted: Record<string, FunctionDeclarationSchemaProperty> = {};
-	for (const [key, prop] of Object.entries(properties)) {
-		switch (prop.type) {
-			case ToolSchemaType.STRING:
-				converted[key] = {
-					type: SchemaType.STRING,
-					description: prop.description,
+function getGeminiTools(tools: Tool[]): GeminiTool[] {
+	return [
+		{
+			functionDeclarations: tools.map((tool) => {
+				// Convert the Zod schema to a JSON schema
+				const jsonSchema = zodToJsonSchema(tool.inputSchema);
+				// The zodToJsonSchema function returns a complex object, we need to extract the properties.
+				// biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility.
+				const { properties = {}, required = [] } = jsonSchema as any;
+				return {
+					name: tool.name,
+					description: tool.description,
+					parameters: {
+						type: SchemaType.OBJECT,
+						properties,
+						required,
+					},
 				};
-				break;
-			case ToolSchemaType.NUMBER:
-				converted[key] = {
-					type: SchemaType.NUMBER,
-					description: prop.description,
-				};
-				break;
-			case ToolSchemaType.INTEGER:
-				converted[key] = {
-					type: SchemaType.INTEGER,
-					description: prop.description,
-				};
-				break;
-			case ToolSchemaType.BOOLEAN:
-				converted[key] = {
-					type: SchemaType.BOOLEAN,
-					description: prop.description,
-				};
-				break;
-			default:
-				throw new Error(`Unsupported tool property type: ${prop.type}`);
-		}
-	}
-	return converted;
-}
-
-function convertTool(tool: Tool): FunctionDeclaration {
-	return {
-		name: tool.schema.name,
-		description: tool.schema.description,
-		parameters: {
-			type: SchemaType.OBJECT,
-			properties: convertToolProperties(tool.schema.parameters.properties),
-			required: tool.schema.parameters.required,
+			}),
 		},
-	};
+	];
 }
 
 export class GeminiProvider implements Provider {
@@ -82,9 +47,7 @@ export class GeminiProvider implements Provider {
 			throw new Error("Google API key is required");
 		}
 
-		// logger.debug("Tools", tools);
-		const functionDeclarations = tools.map((tool) => convertTool(tool));
-		// logger.debug("Function declarations:", functionDeclarations);
+		this.tools = tools;
 
 		this.temperature = config.temperature || DEFAULT_TEMPERATURE;
 		if (this.temperature < 0 || this.temperature > 1) {
@@ -104,19 +67,23 @@ export class GeminiProvider implements Provider {
 		this.genAI = new GoogleGenerativeAI(config.api_key);
 		this.model = this.genAI.getGenerativeModel({
 			model: config.model || "gemini-1.5-pro",
-			tools: [{ functionDeclarations }],
+			tools: getGeminiTools(this.tools),
 			generationConfig: {
 				temperature: this.temperature,
 				maxOutputTokens: this.maxTokens,
 			},
 		});
-		this.tools = tools;
 	}
 
 	async chatBot(request: Request): Promise<Response> {
 		if (!this.model) {
 			throw new Error("Gemini model is not initialized");
 		}
+
+		const toolSchemas = new Map(this.tools.map((tool) => [tool.name, tool]));
+		const toolExecutors = new Map(
+			this.tools.map((tool) => [tool.name, tool.execute]),
+		);
 
 		try {
 			// Convert messages to Gemini format
@@ -158,21 +125,28 @@ export class GeminiProvider implements Provider {
 				const toolResults = await Promise.all(
 					functionCalls.map(async (call) => {
 						try {
-							for (const tool of this.tools) {
-								if (tool.schema.name === call.name) {
-									logger.log(
-										`Executing tool ${util.styleText("bold", tool.schema.name)} with args:`,
-										call.args,
-									);
-									const toolResult = await tool.run(call.args);
-									return {
-										name: call.name,
-										result: toolResult,
-									};
-								}
+							if (!toolSchemas.has(call.name)) {
+								throw new Error(`Tool not found: ${call.name}`);
 							}
 
-							throw new Error(`Tool not found: ${call.name}`);
+							const tool = toolSchemas.get(call.name);
+							if (!tool) {
+								throw new Error(`Tool not found: ${call.name}`);
+							}
+							const executor = toolExecutors.get(call.name);
+
+							if (tool && executor) {
+								const validatedArgs = tool.inputSchema.parse(call.args);
+								const rawResult = await executor(validatedArgs);
+								const validatedResult = tool.outputSchema.parse(rawResult);
+
+								return {
+									name: call.name,
+									result: validatedResult,
+								};
+							}
+
+							throw new Error(`Tool executor not found for: ${call.name}`);
 						} catch (error) {
 							return {
 								name: call.name,
