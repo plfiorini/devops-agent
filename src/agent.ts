@@ -31,8 +31,64 @@ const providerLabels: Record<ConfigProvider, string> = {
 	ollama: "Ollama",
 };
 
+const fallbackOrder: ConfigProvider[] = [
+	"ollama",
+	"gemini",
+	"azure_openai",
+	"openai",
+	"anthropic",
+];
+
+type ProviderResult = { provider: Provider; modelName: string };
+type ProviderFactory = (
+	config: Config,
+	tools: Tool[],
+	model?: string,
+) => ProviderResult;
+
+const providerFactories: Record<ConfigProvider, ProviderFactory> = {
+	gemini: (config, tools, model) => {
+		const cfg = model
+			? { ...config.providers.gemini!, model }
+			: config.providers.gemini!;
+		return { provider: new GeminiProvider(cfg, tools), modelName: cfg.model };
+	},
+	azure_openai: (config, tools, model) => {
+		// azure_openai uses deployment_name instead of model
+		const cfg = model
+			? { ...config.providers.azure_openai!, deployment_name: model }
+			: config.providers.azure_openai!;
+		return {
+			provider: new OpenAIProvider(cfg, tools),
+			modelName: cfg.deployment_name,
+		};
+	},
+	openai: (config, tools, model) => {
+		const cfg = model
+			? { ...config.providers.openai!, model }
+			: config.providers.openai!;
+		return { provider: new OpenAIProvider(cfg, tools), modelName: cfg.model };
+	},
+	anthropic: (config, tools, model) => {
+		const cfg = model
+			? { ...config.providers.anthropic!, model }
+			: config.providers.anthropic!;
+		return {
+			provider: new AnthropicProvider(cfg, tools),
+			modelName: cfg.model,
+		};
+	},
+	ollama: (config, tools, model) => {
+		const cfg = model
+			? { ...config.providers.ollama!, model }
+			: config.providers.ollama!;
+		return { provider: new OllamaProvider(cfg, tools), modelName: cfg.model };
+	},
+};
+
 export class Agent {
 	private provider?: Provider = undefined;
+	private providerKey?: ConfigProvider = undefined;
 	private providerName?: string = undefined;
 	private modelName?: string = undefined;
 	private initialized = false;
@@ -44,16 +100,10 @@ export class Agent {
 		return this.tools;
 	}
 
-	/**
-	 * Get conversation history
-	 */
 	getConversationHistory(): Message[] {
 		return [...this.conversationHistory];
 	}
 
-	/**
-	 * Clear conversation history but keep system prompt
-	 */
 	clearConversationHistory(): void {
 		this.conversationHistory = [];
 	}
@@ -66,91 +116,82 @@ export class Agent {
 		const { config } = await import("./config.ts");
 		this.providerInfo = this.buildProviderInfo(config);
 
-		// Initialize provider based on default_provider configuration
 		const defaultProvider = config.default_provider;
+		let resolvedKey: ConfigProvider | undefined;
 
 		if (defaultProvider === "gemini" && config.providers.gemini?.enabled) {
-			logger.debug("Initializing with Gemini provider (default)");
-			this.provider = new GeminiProvider(config.providers.gemini, this.tools);
-			this.providerName = providerLabels.gemini;
-			this.modelName = config.providers.gemini.model;
+			resolvedKey = "gemini";
 		} else if (
 			defaultProvider === "azure_openai" &&
 			config.providers.azure_openai?.enabled
 		) {
-			logger.debug("Initializing with Azure OpenAI provider (default)");
-			this.provider = new OpenAIProvider(
-				config.providers.azure_openai,
-				this.tools,
-			);
-			this.providerName = providerLabels.azure_openai;
-			this.modelName = config.providers.azure_openai.deployment_name;
+			resolvedKey = "azure_openai";
 		} else if (
 			defaultProvider === "openai" &&
 			config.providers.openai?.enabled
 		) {
-			logger.debug("Initializing with OpenAI provider (default)");
-			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
-			this.providerName = providerLabels.openai;
-			this.modelName = config.providers.openai.model;
+			resolvedKey = "openai";
 		} else if (
 			defaultProvider === "anthropic" &&
 			config.providers.anthropic?.enabled
 		) {
-			logger.debug("Initializing with Anthropic provider (default)");
-			this.provider = new AnthropicProvider(
-				config.providers.anthropic,
-				this.tools,
-			);
-			this.providerName = providerLabels.anthropic;
-			this.modelName = config.providers.anthropic.model;
+			resolvedKey = "anthropic";
 		} else if (
 			defaultProvider === "ollama" &&
 			config.providers.ollama?.enabled
 		) {
-			logger.debug("Initializing with Ollama provider (default)");
-			this.provider = new OllamaProvider(config.providers.ollama, this.tools);
-			this.providerName = providerLabels.ollama;
-			this.modelName = config.providers.ollama.model;
+			resolvedKey = "ollama";
 		} else {
-			// Fallback to any enabled provider if default is not available
-			if (config.providers.ollama?.enabled) {
-				logger.debug("Initializing with Ollama provider (fallback)");
-				this.provider = new OllamaProvider(config.providers.ollama, this.tools);
-				this.providerName = providerLabels.ollama;
-				this.modelName = config.providers.ollama.model;
-			} else if (config.providers.gemini?.enabled) {
-				logger.debug("Initializing with Gemini provider (fallback)");
-				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
-				this.providerName = providerLabels.gemini;
-				this.modelName = config.providers.gemini.model;
-			} else if (config.providers.azure_openai?.enabled) {
-				logger.debug("Initializing with Azure OpenAI provider (fallback)");
-				this.provider = new OpenAIProvider(
-					config.providers.azure_openai,
-					this.tools,
-				);
-				this.providerName = providerLabels.azure_openai;
-				this.modelName = config.providers.azure_openai.deployment_name;
-			} else if (config.providers.openai?.enabled) {
-				logger.debug("Initializing with OpenAI provider (fallback)");
-				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
-				this.providerName = providerLabels.openai;
-				this.modelName = config.providers.openai.model;
-			} else if (config.providers.anthropic?.enabled) {
-				logger.debug("Initializing with Anthropic provider (fallback)");
-				this.provider = new AnthropicProvider(
-					config.providers.anthropic,
-					this.tools,
-				);
-				this.providerName = providerLabels.anthropic;
-				this.modelName = config.providers.anthropic.model;
-			} else {
-				throw new Error("No enabled provider configuration found");
+			for (const key of fallbackOrder) {
+				if (config.providers[key]?.enabled) {
+					resolvedKey = key;
+					break;
+				}
 			}
 		}
 
+		if (!resolvedKey) {
+			throw new Error("No enabled provider configuration found");
+		}
+
+		logger.debug(`Initializing with ${providerLabels[resolvedKey]} provider`);
+		this.instantiateProvider(resolvedKey, config);
 		this.initialized = true;
+	}
+
+	/**
+	 * Switch the active provider at runtime. Clears conversation history.
+	 */
+	async switchProvider(providerKey: string, model?: string): Promise<void> {
+		const { config } = await import("./config.ts");
+
+		const knownProviders = Object.keys(providerLabels) as ConfigProvider[];
+		if (!knownProviders.includes(providerKey as ConfigProvider)) {
+			throw new Error(
+				`Unknown provider "${providerKey}". Valid: ${knownProviders.join(", ")}`,
+			);
+		}
+
+		const key = providerKey as ConfigProvider;
+		if (!config.providers[key]?.enabled) {
+			throw new Error(
+				`Provider "${providerKey}" is not enabled in config.yaml`,
+			);
+		}
+
+		this.instantiateProvider(key, config, model);
+		this.conversationHistory = [];
+	}
+
+	/**
+	 * Change the model for the current provider. Does not clear conversation history.
+	 */
+	async switchModel(model: string): Promise<void> {
+		if (!this.providerKey) {
+			throw new Error("No active provider to change model for");
+		}
+		const { config } = await import("./config.ts");
+		this.instantiateProvider(this.providerKey, config, model);
 	}
 
 	/**
@@ -164,23 +205,18 @@ export class Agent {
 		}
 
 		try {
-			// Add user message to history
 			this.conversationHistory.push({
 				role: "user",
 				content: userMessage,
 			});
 
-			// Create request with system prompt and conversation history
 			const request = {
 				systemPrompt: SystemPrompt,
 				messages: this.conversationHistory,
 			};
 
-			// Get response from provider
 			const response = await this.provider.chatBot(request);
-
 			this.conversationHistory.push(...response.messages);
-
 			return response.content;
 		} catch (error) {
 			logger.error("Agent processing error:", error);
@@ -206,6 +242,22 @@ export class Agent {
 			toolCount: this.tools.length,
 			conversationCount: this.conversationHistory.length,
 		};
+	}
+
+	private instantiateProvider(
+		key: ConfigProvider,
+		config: Config,
+		model?: string,
+	): void {
+		const { provider, modelName } = providerFactories[key](
+			config,
+			this.tools,
+			model,
+		);
+		this.provider = provider;
+		this.modelName = modelName;
+		this.providerKey = key;
+		this.providerName = providerLabels[key];
 	}
 
 	private buildProviderInfo(config: Config): ProviderInfo[] {

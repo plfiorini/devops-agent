@@ -33,6 +33,8 @@ export type AgentClient = {
 	getAvailableTools: () => Tool[];
 	getProviderInfo: () => ProviderInfo[];
 	getStatus: () => AgentStatus;
+	switchProvider: (providerKey: string, model?: string) => Promise<void>;
+	switchModel: (model: string) => Promise<void>;
 };
 
 export type DevOpsAgentAppProps = {
@@ -146,8 +148,11 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 	}, []);
 
 	const handleCommand = useCallback(
-		(commandName: UiCommandName) => {
-			appendEntry({ kind: "command", content: `/${commandName}` });
+		async (commandName: UiCommandName, args?: string) => {
+			appendEntry({
+				kind: "command",
+				content: args ? `/${commandName} ${args}` : `/${commandName}`,
+			});
 
 			if (commandName === "exit") {
 				exit();
@@ -175,6 +180,57 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 					kind: "system",
 					content: formatStatus(appAgent.getStatus()),
 				});
+				return;
+			}
+
+			if (commandName === "provider") {
+				if (!args) {
+					const currentStatus = appAgent.getStatus();
+					appendEntry({
+						kind: "system",
+						content: `Active provider: ${currentStatus.activeProviderName ?? "none"} (model: ${currentStatus.activeModelName ?? "none"})`,
+					});
+				} else {
+					const colonIndex = args.indexOf(":");
+					const providerKey =
+						colonIndex >= 0 ? args.slice(0, colonIndex) : args;
+					const modelOverride =
+						colonIndex >= 0 ? args.slice(colonIndex + 1) || undefined : undefined;
+					try {
+						await appAgent.switchProvider(providerKey, modelOverride);
+						refreshAgentState();
+						const nextStatus = appAgent.getStatus();
+						appendEntry({
+							kind: "system",
+							content: `Switched to ${nextStatus.activeProviderName} (model: ${nextStatus.activeModelName}). Conversation history cleared.`,
+						});
+					} catch (error) {
+						appendEntry({ kind: "error", content: getErrorMessage(error) });
+					}
+				}
+				return;
+			}
+
+			if (commandName === "model") {
+				if (!args) {
+					const currentStatus = appAgent.getStatus();
+					appendEntry({
+						kind: "system",
+						content: `Active model: ${currentStatus.activeModelName ?? "none"} (provider: ${currentStatus.activeProviderName ?? "none"})`,
+					});
+				} else {
+					try {
+						await appAgent.switchModel(args);
+						refreshAgentState();
+						const nextStatus = appAgent.getStatus();
+						appendEntry({
+							kind: "system",
+							content: `Model switched to ${nextStatus.activeModelName}.`,
+						});
+					} catch (error) {
+						appendEntry({ kind: "error", content: getErrorMessage(error) });
+					}
+				}
 				return;
 			}
 
@@ -208,7 +264,7 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 			}
 
 			if (parsedInput.type === "command") {
-				handleCommand(parsedInput.name);
+				void handleCommand(parsedInput.name, parsedInput.args);
 				return;
 			}
 
