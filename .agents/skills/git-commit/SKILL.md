@@ -22,7 +22,7 @@ Create standardized git commits per the Conventional Commits 1.0.0 spec.
 - **type**: noun (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`). Case-insensitive.
 - **scope**: optional noun describing the affected area, e.g. `feat(parser):`.
 - **description**: short summary immediately after `:<space>`. Imperative mood, <72 chars.
-- **body**: optional; begins one blank line after description. Free-form paragraphs.
+- **body**: optional; begins one blank line after description. Free-form paragraphs; wrap lines at 72 chars.
 - **footers**: optional; begin one blank line after body. Format: `Token: value` or `Token #value`. Token uses `-` instead of spaces (e.g. `Acked-by`). Parsing stops when the next valid token/separator pair is found.
 - **AI assistance**: when a commit was AI-assisted, add `Assisted-by: AGENT_NAME:MODEL_VERSION` (e.g. `Assisted-by: GitHub Copilot:claude-sonnet-4-6`).
 
