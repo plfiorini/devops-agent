@@ -2,6 +2,7 @@ import type { Config, Provider as ConfigProvider } from "./config.ts";
 import logger from "./logger.ts";
 import { AnthropicProvider } from "./models/anthropic.ts";
 import { GeminiProvider } from "./models/gemini.ts";
+import { OllamaProvider } from "./models/ollama.ts";
 import { OpenAIProvider } from "./models/openai.ts";
 import { SystemPrompt } from "./systemPrompt.ts";
 import loadTools from "./tools.ts";
@@ -26,6 +27,7 @@ const providerLabels: Record<ConfigProvider, string> = {
 	azure_openai: "Azure OpenAI",
 	openai: "OpenAI",
 	anthropic: "Anthropic",
+	ollama: "Ollama",
 };
 
 export class Agent {
@@ -96,9 +98,20 @@ export class Agent {
 				this.tools,
 			);
 			this.providerName = providerLabels.anthropic;
+		} else if (
+			defaultProvider === "ollama" &&
+			config.providers.ollama?.enabled
+		) {
+			logger.debug("Initializing with Ollama provider (default)");
+			this.provider = new OllamaProvider(config.providers.ollama, this.tools);
+			this.providerName = providerLabels.ollama;
 		} else {
 			// Fallback to any enabled provider if default is not available
-			if (config.providers.gemini?.enabled) {
+			if (config.providers.ollama?.enabled) {
+				logger.debug("Initializing with Ollama provider (fallback)");
+				this.provider = new OllamaProvider(config.providers.ollama, this.tools);
+				this.providerName = providerLabels.ollama;
+			} else if (config.providers.gemini?.enabled) {
 				logger.debug("Initializing with Gemini provider (fallback)");
 				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
 				this.providerName = providerLabels.gemini;

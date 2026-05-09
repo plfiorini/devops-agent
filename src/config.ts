@@ -2,7 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import YAML from "yaml";
 
-export type Provider = "gemini" | "openai" | "azure_openai" | "anthropic";
+export type Provider =
+	| "gemini"
+	| "openai"
+	| "azure_openai"
+	| "anthropic"
+	| "ollama";
 
 export type GeminiConfig = {
 	enabled: boolean;
@@ -41,6 +46,14 @@ export type AnthropicConfig = {
 	max_tokens?: number;
 };
 
+export type OllamaConfig = {
+	enabled: boolean;
+	base_url?: string;
+	model: string;
+	temperature?: number;
+	max_tokens?: number;
+};
+
 export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;
 
 export type ProvidersConfig = {
@@ -48,6 +61,7 @@ export type ProvidersConfig = {
 	openai?: OpenAIConfig;
 	azure_openai?: AzureOpenAIConfig;
 	anthropic?: AnthropicConfig;
+	ollama?: OllamaConfig;
 };
 
 export type Config = {
@@ -72,14 +86,17 @@ function loadConfig(configPath?: string): Config {
 			config.providers.gemini?.enabled ||
 			config.providers.azure_openai?.enabled ||
 			config.providers.openai?.enabled ||
-			config.providers.anthropic?.enabled;
+			config.providers.anthropic?.enabled ||
+			config.providers.ollama?.enabled;
 		if (!hasEnabledProvider) {
 			throw new Error("At least one provider must be configured and enabled");
 		}
 
 		// Set default provider if not specified
 		if (!config.default_provider) {
-			if (config.providers.gemini?.enabled) {
+			if (config.providers.ollama?.enabled) {
+				config.default_provider = "ollama";
+			} else if (config.providers.gemini?.enabled) {
 				config.default_provider = "gemini";
 			} else if (config.providers.azure_openai?.enabled) {
 				config.default_provider = "azure_openai";
@@ -116,6 +133,12 @@ function loadConfig(configPath?: string): Config {
 			!config.providers.anthropic?.enabled
 		) {
 			throw new Error("Default provider 'anthropic' is not enabled");
+		}
+		if (
+			config.default_provider === "ollama" &&
+			!config.providers.ollama?.enabled
+		) {
+			throw new Error("Default provider 'ollama' is not enabled");
 		}
 
 		return config as Config;
