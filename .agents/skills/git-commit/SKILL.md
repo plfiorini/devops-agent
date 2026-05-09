@@ -24,7 +24,7 @@ Create standardized git commits per the Conventional Commits 1.0.0 spec.
 - **description**: short summary immediately after `:<space>`. Imperative mood, <72 chars.
 - **body**: optional; begins one blank line after description. Free-form paragraphs; wrap lines at 72 chars.
 - **footers**: optional; begin one blank line after body. Format: `Token: value` or `Token #value`. Token uses `-` instead of spaces (e.g. `Acked-by`). Parsing stops when the next valid token/separator pair is found.
-- **AI assistance**: when a commit was AI-assisted, add `Assisted-By: AGENT_NAME:MODEL_VERSION` (e.g. `Assisted-By: GitHub Copilot:claude-sonnet-4-6`).
+- **AI assistance**: when a commit was AI-assisted, add `Assisted-By: AGENT_NAME:MODEL_VERSION` (e.g. `Assisted-By: GitHub Copilot:claude-sonnet-4-6`, `Assisted-By: Claude Code:claude-sonnet-4-6`).
 
 ## SemVer Mapping
 
