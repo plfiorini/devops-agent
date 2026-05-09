@@ -1,5 +1,10 @@
 {
 	"editor.formatOnSave": true,
+	"github.copilot.chat.commitMessageGeneration.instructions": [
+		{
+			"file": ".agents/skills/git-commit/SKILL.md"
+		}
+	],
 	"[typescript]": {
 		"editor.defaultFormatter": "biomejs.biome",
 		"editor.codeActionsOnSave": {
