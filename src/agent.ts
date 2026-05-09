@@ -179,11 +179,7 @@ export class Agent {
 			// Get response from provider
 			const response = await this.provider.chatBot(request);
 
-			// Add assistant response to history
-			this.conversationHistory.push({
-				role: "assistant",
-				content: response.content,
-			});
+			this.conversationHistory.push(...response.messages);
 
 			return response.content;
 		} catch (error) {

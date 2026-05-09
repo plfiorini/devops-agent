@@ -4,10 +4,37 @@
 
 import type z from "zod/v4";
 
-export type Message = {
+export const MAX_TOOL_ITERATIONS = 8;
+
+export type ToolCall = {
+	id: string;
+	name: string;
+	arguments: unknown;
+};
+
+export type TextMessage = {
 	role: "user" | "assistant" | "system";
 	content: string;
 };
+
+export type AssistantToolCallMessage = {
+	role: "assistant";
+	content: string;
+	toolCalls: ToolCall[];
+};
+
+export type ToolResultMessage = {
+	role: "tool";
+	toolCallId: string;
+	toolName: string;
+	content: string;
+	isError?: boolean;
+};
+
+export type Message =
+	| TextMessage
+	| AssistantToolCallMessage
+	| ToolResultMessage;
 
 export type Request = {
 	systemPrompt: string;
@@ -16,6 +43,7 @@ export type Request = {
 
 export type Response = {
 	content: string;
+	messages: Message[];
 };
 
 export interface Provider {

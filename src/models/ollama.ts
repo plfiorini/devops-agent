@@ -1,12 +1,24 @@
 import { OpenAI } from "openai";
 import type {
+	ChatCompletionAssistantMessageParam,
 	ChatCompletionMessageParam,
+	ChatCompletionMessageToolCall,
 	ChatCompletionTool,
+	ChatCompletionToolMessageParam,
 } from "openai/resources";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OllamaConfig } from "../config.ts";
 import logger from "../logger.ts";
-import type { Provider, Request, Response, Tool } from "../types.ts";
+import { executeToolFromJsonArgs } from "../tools/executeTool.ts";
+import type {
+	Message,
+	Provider,
+	Request,
+	Response,
+	Tool,
+	ToolResultMessage,
+} from "../types.ts";
+import { MAX_TOOL_ITERATIONS } from "../types.ts";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_TEMPERATURE = 0.7;
@@ -26,6 +38,57 @@ function getOllamaTools(appTools: Tool[]): ChatCompletionTool[] {
 			},
 		};
 	});
+}
+
+function toOllamaToolMessage(
+	message: ToolResultMessage,
+): ChatCompletionToolMessageParam {
+	return {
+		tool_call_id: message.toolCallId,
+		role: "tool",
+		content: message.content,
+	};
+}
+
+function toOllamaAssistantToolMessage(
+	content: string,
+	toolCalls: ChatCompletionMessageToolCall[],
+): Message {
+	return {
+		role: "assistant",
+		content,
+		toolCalls: toolCalls.map((call) => ({
+			id: call.id,
+			name: call.function.name,
+			arguments: safeParseArguments(call.function.arguments),
+		})),
+	};
+}
+
+function safeParseArguments(argumentsJson: string): unknown {
+	try {
+		return JSON.parse(argumentsJson);
+	} catch {
+		return argumentsJson;
+	}
+}
+
+function toOllamaToolCalls(message: Message): ChatCompletionMessageToolCall[] {
+	if (message.role !== "assistant" || !("toolCalls" in message)) {
+		return [];
+	}
+
+	return message.toolCalls.map((toolCall) => ({
+		id: toolCall.id,
+		type: "function" as const,
+		function: {
+			name: toolCall.name,
+			arguments:
+				typeof toolCall.arguments === "string"
+					? toolCall.arguments
+					: JSON.stringify(toolCall.arguments),
+		},
+	}));
 }
 
 export class OllamaProvider implements Provider {
@@ -68,92 +131,74 @@ export class OllamaProvider implements Provider {
 
 	async chatBot(request: Request): Promise<Response> {
 		const toolSchemas = new Map(this.tools.map((tool) => [tool.name, tool]));
-		const toolExecutors = new Map(
-			this.tools.map((tool) => [tool.name, tool.execute]),
-		);
 
 		try {
 			const messages = this.convertMessagesToOllamaFormat(request);
+			const generatedMessages: Message[] = [];
 			const ollamaTools = getOllamaTools(this.tools);
 
-			const chatCompletion = await this.client.chat.completions.create({
-				model: this.model,
-				messages,
-				tools: ollamaTools.length > 0 ? ollamaTools : undefined,
-				tool_choice: ollamaTools.length > 0 ? "auto" : undefined,
-				temperature: this.temperature,
-				max_tokens: this.maxTokens,
-			});
-
-			const responseMessage = chatCompletion.choices[0]?.message;
-			if (!responseMessage) {
-				throw new Error("No response from Ollama");
-			}
-
-			if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-				const toolResults = await Promise.all(
-					responseMessage.tool_calls.map(async (call) => {
-						try {
-							if (!toolSchemas.has(call.function.name)) {
-								throw new Error(`Tool not found: ${call.function.name}`);
-							}
-
-							const tool = toolSchemas.get(call.function.name);
-							if (!tool) {
-								throw new Error(`Tool not found: ${call.function.name}`);
-							}
-							const executor = toolExecutors.get(call.function.name);
-
-							if (tool && executor) {
-								const args = JSON.parse(call.function.arguments);
-								const validatedArgs = tool.inputSchema.parse(args);
-								const rawResult = await executor(validatedArgs);
-								const validatedResult = tool.outputSchema.parse(rawResult);
-
-								return {
-									tool_call_id: call.id,
-									role: "tool" as const,
-									content: JSON.stringify(validatedResult),
-								};
-							}
-
-							throw new Error(
-								`Tool executor not found for: ${call.function.name}`,
-							);
-						} catch (error) {
-							return {
-								tool_call_id: call.id,
-								role: "tool" as const,
-								content: JSON.stringify({
-									error: error instanceof Error ? error.message : String(error),
-								}),
-							};
-						}
-					}),
-				);
-
-				const followUpMessages = [...messages, responseMessage, ...toolResults];
-
-				const followUpCompletion = await this.client.chat.completions.create({
+			for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration++) {
+				const chatCompletion = await this.client.chat.completions.create({
 					model: this.model,
-					messages: followUpMessages,
+					messages,
+					tools: ollamaTools.length > 0 ? ollamaTools : undefined,
+					tool_choice: ollamaTools.length > 0 ? "auto" : undefined,
 					temperature: this.temperature,
 					max_tokens: this.maxTokens,
 				});
 
-				const followUpResponse = followUpCompletion.choices[0]?.message;
-				if (!followUpResponse?.content) {
-					throw new Error("No follow-up response from Ollama");
+				const responseMessage = chatCompletion.choices[0]?.message;
+				if (!responseMessage) {
+					throw new Error("No response from Ollama");
 				}
 
-				return { content: followUpResponse.content };
+				if (
+					responseMessage.tool_calls &&
+					responseMessage.tool_calls.length > 0
+				) {
+					if (iteration === MAX_TOOL_ITERATIONS) {
+						throw new Error(
+							`Exceeded maximum tool iterations (${MAX_TOOL_ITERATIONS})`,
+						);
+					}
+
+					const assistantMessage = toOllamaAssistantToolMessage(
+						responseMessage.content ?? "",
+						responseMessage.tool_calls,
+					);
+					generatedMessages.push(assistantMessage);
+					messages.push({
+						role: "assistant",
+						content: responseMessage.content ?? null,
+						tool_calls: responseMessage.tool_calls,
+					});
+
+					for (const call of responseMessage.tool_calls) {
+						const toolResult = await executeToolFromJsonArgs(call.id, call.function.name, call.function.arguments, toolSchemas);
+						generatedMessages.push(toolResult);
+						messages.push(toOllamaToolMessage(toolResult));
+					}
+
+					continue;
+				}
+
+				if (!responseMessage.content) {
+					throw new Error("Empty response from Ollama");
+				}
+
+				const finalMessage: Message = {
+					role: "assistant",
+					content: responseMessage.content,
+				};
+				return {
+					content: responseMessage.content,
+					messages: [...generatedMessages, finalMessage],
+				};
 			}
 
-			if (!responseMessage.content) {
-				throw new Error("Empty response from Ollama");
-			}
-
-			return { content: responseMessage.content };
+			throw new Error(
+				`Exceeded maximum tool iterations (${MAX_TOOL_ITERATIONS})`,
+			);
 		} catch (error) {
 			logger.error("Ollama API error:", error);
 			throw new Error(
@@ -175,8 +220,31 @@ export class OllamaProvider implements Provider {
 		];
 
 		for (const msg of request.messages) {
+			if (msg.role === "tool") {
+				messages.push(toOllamaToolMessage(msg));
+				continue;
+			}
+
+			if (msg.role === "assistant" && "toolCalls" in msg) {
+				const assistantMessage: ChatCompletionAssistantMessageParam = {
+					role: "assistant",
+					content: msg.content || null,
+					tool_calls: toOllamaToolCalls(msg),
+				};
+				messages.push(assistantMessage);
+				continue;
+			}
+
+			if (msg.role === "system") {
+				messages.push({
+					role: "system",
+					content: msg.content,
+				});
+				continue;
+			}
+
 			messages.push({
-				role: msg.role === "assistant" ? "assistant" : "user",
+				role: msg.role,
 				content: msg.content,
 			});
 		}

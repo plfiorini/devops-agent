@@ -3,11 +3,14 @@
 The agent comes with the following built-in tools:
 
 ### Execute Command Tool
-- **Purpose**: Execute shell commands on the system
+- **Purpose**: Execute conservative read/test shell commands on the system
 - **Parameters**:
   - `command` (required): The shell command to execute
   - `workingDirectory` (optional): Directory to execute the command in
-- **Usage**: Automatically invoked by the AI when system operations are needed
+  - `timeoutMs` (optional): Maximum execution time in milliseconds
+  - `maxOutputChars` (optional): Maximum combined stdout/stderr characters to return
+- **Result**: Structured object with `ok`, `stdout`, `stderr`, `output`, `exitCode`, `signal`, `timedOut`, `truncated`, and optional `error`
+- **Safety**: Commands outside the conservative read/test allowlist are rejected until an approval flow is implemented
 
 ### Adding New Tools
 
@@ -17,24 +20,22 @@ To add a new tool:
 2. Implement the `Tool` interface:
 
 ```typescript
-import { Tool, ToolSchema, ToolSchemaType } from "../types.ts";
+import { z } from "zod";
+import type { Tool } from "../types.ts";
+
+const InputSchema = z.object({
+  param1: z.string(),
+});
+
+const OutputSchema = z.string();
 
 class MyTool implements Tool {
-  schema: ToolSchema = {
-    name: "my_tool",
-    description: "Description of what this tool does",
-    parameters: {
-      properties: {
-        param1: {
-          type: ToolSchemaType.STRING,
-          description: "Description of parameter",
-        },
-      },
-      required: ["param1"],
-    },
-  };
+  name = "my_tool";
+  description = "Description of what this tool does";
+  inputSchema = InputSchema;
+  outputSchema = OutputSchema;
 
-  async run(args: { param1: string }): Promise<string> {
+  async execute(args: z.infer<typeof InputSchema>): Promise<string> {
     // Tool implementation
     return "Tool result";
   }

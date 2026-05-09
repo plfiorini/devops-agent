@@ -1,13 +1,24 @@
 import {
+	type Content,
 	type Tool as GeminiTool,
 	type GenerativeModel,
 	GoogleGenerativeAI,
+	type Part,
 	SchemaType,
 } from "@google/generative-ai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { GeminiConfig } from "../config.ts";
 import logger from "../logger.ts";
-import type { Message, Provider, Request, Response, Tool } from "../types.ts";
+import { executeTool } from "../tools/executeTool.ts";
+import type {
+	Message,
+	Provider,
+	Request,
+	Response,
+	Tool,
+	ToolResultMessage,
+} from "../types.ts";
+import { MAX_TOOL_ITERATIONS } from "../types.ts";
 
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -81,13 +92,17 @@ export class GeminiProvider implements Provider {
 		}
 
 		const toolSchemas = new Map(this.tools.map((tool) => [tool.name, tool]));
-		const toolExecutors = new Map(
-			this.tools.map((tool) => [tool.name, tool.execute]),
-		);
 
 		try {
-			// Convert messages to Gemini format
-			const history = this.convertMessagesToHistory(request.messages);
+			const lastMessage = request.messages[request.messages.length - 1];
+			if (!lastMessage || lastMessage.role !== "user") {
+				throw new Error("Last message must be from user");
+			}
+
+			const history = this.convertMessagesToHistory(
+				request.messages.slice(0, -1),
+			);
+			const generatedMessages: Message[] = [];
 
 			// Start chat session with system prompt and history
 			const chat = this.model.startChat({
@@ -108,70 +123,65 @@ export class GeminiProvider implements Provider {
 				],
 			});
 
-			// Get the last user message
-			const lastMessage = request.messages[request.messages.length - 1];
-			if (!lastMessage || lastMessage.role !== "user") {
-				throw new Error("Last message must be from user");
+			let result = await chat.sendMessage(lastMessage.content);
+			let toolCallIdCounter = 0;
+			for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration++) {
+				const response = result.response;
+				const functionCalls = response.functionCalls();
+
+				if (functionCalls && functionCalls.length > 0) {
+					if (iteration === MAX_TOOL_ITERATIONS) {
+						throw new Error(
+							`Exceeded maximum tool iterations (${MAX_TOOL_ITERATIONS})`,
+						);
+					}
+
+					const textContent = getGeminiText(response);
+					const toolCallIds = functionCalls.map(
+						() => `gemini_tool_${toolCallIdCounter++}`,
+					);
+					const assistantMessage: Message = {
+						role: "assistant",
+						content: textContent,
+						toolCalls: functionCalls.map((call, i) => ({
+							id: toolCallIds[i] ?? "",
+							name: call.name,
+							arguments: call.args,
+						})),
+					};
+					generatedMessages.push(assistantMessage);
+
+					const toolResults: ToolResultMessage[] = [];
+					for (let i = 0; i < functionCalls.length; i++) {
+						const call = functionCalls[i];
+						if (!call) continue;
+						const toolResult = await executeTool(
+							toolCallIds[i] ?? "",
+							call.name,
+							call.args,
+							toolSchemas,
+						);
+						generatedMessages.push(toolResult);
+						toolResults.push(toolResult);
+					}
+
+					result = await chat.sendMessage(
+						toolResults.map(toolResultToGeminiPart),
+					);
+					continue;
+				}
+
+				const content = response.text();
+				const finalMessage: Message = {
+					role: "assistant",
+					content,
+				};
+				return { content, messages: [...generatedMessages, finalMessage] };
 			}
 
-			// Send message and handle potential tool calls
-			const result = await chat.sendMessage(lastMessage.content);
-			const response = result.response;
-
-			// Check if the model wants to call functions
-			const functionCalls = response.functionCalls();
-			if (functionCalls && functionCalls.length > 0) {
-				// Execute tool calls
-				const toolResults = await Promise.all(
-					functionCalls.map(async (call) => {
-						try {
-							if (!toolSchemas.has(call.name)) {
-								throw new Error(`Tool not found: ${call.name}`);
-							}
-
-							const tool = toolSchemas.get(call.name);
-							if (!tool) {
-								throw new Error(`Tool not found: ${call.name}`);
-							}
-							const executor = toolExecutors.get(call.name);
-
-							if (tool && executor) {
-								const validatedArgs = tool.inputSchema.parse(call.args);
-								const rawResult = await executor(validatedArgs);
-								const validatedResult = tool.outputSchema.parse(rawResult);
-
-								return {
-									name: call.name,
-									result: validatedResult,
-								};
-							}
-
-							throw new Error(`Tool executor not found for: ${call.name}`);
-						} catch (error) {
-							return {
-								name: call.name,
-								result: null,
-								error: error instanceof Error ? error.message : String(error),
-							};
-						}
-					}),
-				);
-
-				// Send tool results back to model
-				const toolResultsForModel = toolResults.map((toolResult) => ({
-					functionResponse: {
-						name: toolResult.name,
-						response: toolResult.error
-							? { error: toolResult.error }
-							: { result: toolResult.result },
-					},
-				}));
-
-				const followUpResult = await chat.sendMessage(toolResultsForModel);
-				return { content: followUpResult.response.text() };
-			}
-
-			return { content: response.text() };
+			throw new Error(
+				`Exceeded maximum tool iterations (${MAX_TOOL_ITERATIONS})`,
+			);
 		} catch (error) {
 			logger.error("Gemini API error:", error);
 			throw new Error(
@@ -180,10 +190,78 @@ export class GeminiProvider implements Provider {
 		}
 	}
 
-	private convertMessagesToHistory(messages: Message[]) {
-		return messages.slice(0, -1).map((msg) => ({
-			role: msg.role === "assistant" ? "model" : "user",
-			parts: [{ text: msg.content }],
-		}));
+	private convertMessagesToHistory(messages: Message[]): Content[] {
+		const history: Content[] = [];
+
+		for (let index = 0; index < messages.length; index++) {
+			const msg = messages[index];
+			if (!msg) {
+				continue;
+			}
+
+			if (msg.role === "tool") {
+				const parts: Part[] = [];
+				while (messages[index]?.role === "tool") {
+					parts.push(
+						toolResultToGeminiPart(messages[index] as ToolResultMessage),
+					);
+					index++;
+				}
+				index--;
+				history.push({ role: "function", parts });
+				continue;
+			}
+
+			if (msg.role === "assistant" && "toolCalls" in msg) {
+				const parts: Part[] = [];
+				if (msg.content) {
+					parts.push({ text: msg.content });
+				}
+				parts.push(
+					...msg.toolCalls.map((toolCall) => ({
+						functionCall: {
+							name: toolCall.name,
+							args: toolCall.arguments as Record<string, unknown>,
+						},
+					})),
+				);
+				history.push({ role: "model", parts });
+				continue;
+			}
+
+			history.push({
+				role: msg.role === "assistant" ? "model" : "user",
+				parts: [{ text: msg.content }],
+			});
+		}
+
+		return history;
+	}
+}
+
+function toolResultToGeminiPart(message: ToolResultMessage): Part {
+	return {
+		functionResponse: {
+			name: message.toolName,
+			response: safeParseJson(message.content),
+		},
+	};
+}
+
+function safeParseJson(content: string): object {
+	try {
+		const value = JSON.parse(content);
+		return value && typeof value === "object" ? value : { result: value };
+	} catch {
+		return { result: content };
+	}
+}
+
+function getGeminiText(response: { text: () => string }): string {
+	try {
+		return response.text();
+	} catch (error) {
+		logger.warn("Failed to extract text from Gemini response:", error);
+		return "";
 	}
 }

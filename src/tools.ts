@@ -9,7 +9,10 @@ export const loadTools = async () => {
 	const tools: Tool[] = [];
 	// logger.debug(`Loading tools from directory: ${toolsDir}`);
 	const files = readdirSync(toolsDir).filter(
-		(file) => file.endsWith(".ts") || file.endsWith(".js"),
+		(file) =>
+			(file.endsWith(".ts") || file.endsWith(".js")) &&
+			!file.endsWith(".test.ts") &&
+			!file.endsWith(".test.js"),
 	);
 	// logger.debug(`Found tool files: ${files.join(", ")}`);
 
