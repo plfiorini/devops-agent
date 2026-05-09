@@ -6,7 +6,7 @@ A powerful AI-powered DevOps assistant that helps with infrastructure automation
 
 - 🤖 **AI-Powered Assistant**: Leverages multiple LLMs (Google Gemini, Azure OpenAI, OpenAI, Anthropic) for intelligent DevOps guidance
 - 🛠️ **Tool Integration**: Extensible tool system for executing system commands
-- 💬 **Interactive Chat Interface**: Command-line chat interface with conversation history
+- 💬 **Ink Terminal UI**: Full-screen terminal interface with transcript, side panels, status, tools, and a multiline composer
 - 🎨 **Rich Terminal Output**: Beautiful markdown rendering with ANSI colors and formatting
 - 🔧 **DevOps Expertise**: Specialized in infrastructure automation and deployment strategies
 - 📝 **TypeScript**: Fully typed codebase for better development experience
@@ -70,20 +70,25 @@ npm start
 
 Once the application is running, you can use the following commands:
 
-- `help` - Show available commands
+- `/help` or `help` - Show available commands
 - `ask <question>` - Ask the AI agent a specific question
-- `tools` - List available tools
-- `clear` - Clear conversation history
-- `exit` - Exit the application
+- `/tools` or `tools` - List available tools
+- `/status` or `status` - Show AI provider status
+- `/clear` or `clear` - Clear conversation history and the transcript
+- `/exit` or `exit` - Exit the application
+
+The composer supports multiline prompts. Press `Enter` to submit, `Ctrl+J`
+or `Shift+Enter` to insert a newline, `Ctrl+P` to cycle the side panel, and
+`Esc` to clear the composer.
 
 ### Example Usage
 
-```
-> ask How do I create a Dockerfile for a Node.js application?
-> What are the best practices for Kubernetes deployments?
-> tools
-> clear
-> exit
+```text
+ask How do I create a Dockerfile for a Node.js application?
+What are the best practices for Kubernetes deployments?
+/tools
+/clear
+/exit
 ```
 
 ## Terminal Output
@@ -190,7 +195,8 @@ See the [documentation on providers](docs/providers.md) for more information.
 - `npm run typecheck` - Type checking without compilation
 - `npm run build` - Compile TypeScript to JavaScript
 - `npm run dev` - Development mode with auto-reload
-- `npm run start` - Run the compiled application
+- `npm run start` - Run the Ink terminal UI
+- `npm run test` - Run focused parser and Ink rendering tests
 - `npm run check` - Run Biome linter and formatter checks
 - `npm run check:fix` - Auto-fix linting and formatting issues
 - `npm run format` - Format code with Biome

@@ -43,14 +43,14 @@ export type AnthropicConfig = {
 
 export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;
 
-type ProvidersConfig = {
+export type ProvidersConfig = {
 	gemini?: GeminiConfig;
 	openai?: OpenAIConfig;
 	azure_openai?: AzureOpenAIConfig;
 	anthropic?: AnthropicConfig;
 };
 
-type Config = {
+export type Config = {
 	default_provider?: Provider;
 	providers: ProvidersConfig;
 };

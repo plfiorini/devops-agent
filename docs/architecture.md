@@ -5,9 +5,9 @@ The project follows a modular architecture:
 ```
 src/
 ├── agent.ts           # Main AI agent orchestrator
-├── chatbot.ts         # Interactive CLI interface
+├── ui/                # Ink terminal UI components and command parsing
 ├── config.ts          # Configuration management
-├── index.ts           # Application entry point
+├── index.ts           # Ink application entry point
 ├── tools.ts           # Tool loading system
 ├── types.ts           # TypeScript type definitions
 ├── models/
@@ -23,7 +23,7 @@ src/
 ## Key Components
 
 - **Agent**: Core orchestrator that manages conversation history and tool execution
-- **ChatBot**: Interactive command-line interface with rich markdown rendering for user interactions
+- **Ink UI**: Full-screen terminal interface with transcript, status/tools/help panels, and multiline input
 - **Markdown Renderer**: Converts AI responses from markdown to beautifully formatted terminal output with ANSI colors
 - **GeminiProvider**: Integration with Google's Gemini AI model
 - **OpenAIProvider**: Integration with OpenAI models (including Azure OpenAI)

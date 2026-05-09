@@ -1,4 +1,4 @@
-import { config } from "./config.ts";
+import type { Config, Provider as ConfigProvider } from "./config.ts";
 import logger from "./logger.ts";
 import { AnthropicProvider } from "./models/anthropic.ts";
 import { GeminiProvider } from "./models/gemini.ts";
@@ -7,8 +7,32 @@ import { SystemPrompt } from "./systemPrompt.ts";
 import loadTools from "./tools.ts";
 import type { Message, Provider, Tool } from "./types.ts";
 
+export type ProviderInfo = {
+	name: string;
+	enabled: boolean;
+	isDefault: boolean;
+};
+
+export type AgentStatus = {
+	initialized: boolean;
+	activeProviderName?: string;
+	providers: ProviderInfo[];
+	toolCount: number;
+	conversationCount: number;
+};
+
+const providerLabels: Record<ConfigProvider, string> = {
+	gemini: "Gemini",
+	azure_openai: "Azure OpenAI",
+	openai: "OpenAI",
+	anthropic: "Anthropic",
+};
+
 export class Agent {
 	private provider?: Provider = undefined;
+	private providerName?: string = undefined;
+	private initialized = false;
+	private providerInfo: ProviderInfo[] = [];
 	private conversationHistory: Message[] = [];
 	private tools: Tool[] = [];
 
@@ -35,6 +59,8 @@ export class Agent {
 	 */
 	async initialize(): Promise<void> {
 		this.tools = await loadTools();
+		const { config } = await import("./config.ts");
+		this.providerInfo = this.buildProviderInfo(config);
 
 		// Initialize provider based on default_provider configuration
 		const defaultProvider = config.default_provider;
@@ -42,6 +68,7 @@ export class Agent {
 		if (defaultProvider === "gemini" && config.providers.gemini?.enabled) {
 			logger.debug("Initializing with Gemini provider (default)");
 			this.provider = new GeminiProvider(config.providers.gemini, this.tools);
+			this.providerName = providerLabels.gemini;
 		} else if (
 			defaultProvider === "azure_openai" &&
 			config.providers.azure_openai?.enabled
@@ -51,12 +78,14 @@ export class Agent {
 				config.providers.azure_openai,
 				this.tools,
 			);
+			this.providerName = providerLabels.azure_openai;
 		} else if (
 			defaultProvider === "openai" &&
 			config.providers.openai?.enabled
 		) {
 			logger.debug("Initializing with OpenAI provider (default)");
 			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
+			this.providerName = providerLabels.openai;
 		} else if (
 			defaultProvider === "anthropic" &&
 			config.providers.anthropic?.enabled
@@ -66,30 +95,37 @@ export class Agent {
 				config.providers.anthropic,
 				this.tools,
 			);
+			this.providerName = providerLabels.anthropic;
 		} else {
 			// Fallback to any enabled provider if default is not available
 			if (config.providers.gemini?.enabled) {
 				logger.debug("Initializing with Gemini provider (fallback)");
 				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
+				this.providerName = providerLabels.gemini;
 			} else if (config.providers.azure_openai?.enabled) {
 				logger.debug("Initializing with Azure OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(
 					config.providers.azure_openai,
 					this.tools,
 				);
+				this.providerName = providerLabels.azure_openai;
 			} else if (config.providers.openai?.enabled) {
 				logger.debug("Initializing with OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
+				this.providerName = providerLabels.openai;
 			} else if (config.providers.anthropic?.enabled) {
 				logger.debug("Initializing with Anthropic provider (fallback)");
 				this.provider = new AnthropicProvider(
 					config.providers.anthropic,
 					this.tools,
 				);
+				this.providerName = providerLabels.anthropic;
 			} else {
 				throw new Error("No enabled provider configuration found");
 			}
 		}
+
+		this.initialized = true;
 	}
 
 	/**
@@ -137,30 +173,32 @@ export class Agent {
 	 * Get information about available providers
 	 */
 	getProviderInfo(): { name: string; enabled: boolean; isDefault: boolean }[] {
-		const providers: { name: string; enabled: boolean; isDefault: boolean }[] =
-			[];
+		return [...this.providerInfo];
+	}
 
-		if (config.providers.gemini) {
-			providers.push({
-				name: "Gemini",
-				enabled: config.providers.gemini.enabled || false,
-				isDefault: config.default_provider === "gemini",
-			});
-		}
+	getStatus(): AgentStatus {
+		return {
+			initialized: this.initialized,
+			activeProviderName: this.providerName,
+			providers: this.getProviderInfo(),
+			toolCount: this.tools.length,
+			conversationCount: this.conversationHistory.length,
+		};
+	}
 
-		if (config.providers.azure_openai) {
-			providers.push({
-				name: "Azure OpenAI",
-				enabled: config.providers.azure_openai.enabled || false,
-				isDefault: config.default_provider === "azure_openai",
-			});
-		}
+	private buildProviderInfo(config: Config): ProviderInfo[] {
+		const providers: ProviderInfo[] = [];
 
-		if (config.providers.openai) {
+		for (const provider of Object.keys(providerLabels) as ConfigProvider[]) {
+			const providerConfig = config.providers[provider];
+			if (!providerConfig) {
+				continue;
+			}
+
 			providers.push({
-				name: "OpenAI",
-				enabled: config.providers.openai.enabled || false,
-				isDefault: config.default_provider === "openai",
+				name: providerLabels[provider],
+				enabled: providerConfig.enabled || false,
+				isDefault: config.default_provider === provider,
 			});
 		}
 

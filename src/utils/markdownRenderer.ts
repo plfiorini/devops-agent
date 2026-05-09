@@ -7,7 +7,7 @@ marked.use(
 	markedTerminal({
 		width: process.stdout.columns || 80,
 		reflowText: true,
-	}),
+	}) as unknown as Parameters<typeof marked.use>[0],
 );
 
 /**

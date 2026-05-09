@@ -1,5 +1,7 @@
-import { ChatBot } from "./chatbot.ts";
+import { render } from "ink";
+import React from "react";
+import { DevOpsAgentApp } from "./ui/App.ts";
 
-// Start the application
-const bot = new ChatBot();
-await bot.start();
+render(React.createElement(DevOpsAgentApp), {
+	alternateScreen: true,
+});
