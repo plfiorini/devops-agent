@@ -21,7 +21,6 @@ export const helpText = [
 	"  /status        Show provider status",
 	"  /clear         Clear transcript and conversation history",
 	"  /exit          Exit the TUI",
-	"  ask <prompt>   Send a prompt using the legacy command form",
 	"",
 	"Input:",
 	"  Enter          Send",
@@ -48,22 +47,7 @@ export function parseInput(input: string): ParsedInput {
 		return { type: "empty" };
 	}
 
-	if (commandName === "ask") {
-		const prompt = commandText.slice(commandName.length).trim();
-		if (!prompt) {
-			return {
-				type: "invalid",
-				message: 'Please provide a prompt after "ask".',
-			};
-		}
-
-		return { type: "prompt", prompt };
-	}
-
-	if (
-		isUiCommandName(commandName) &&
-		(isSlashCommand || !hasCommandArguments)
-	) {
+	if (isSlashCommand && isUiCommandName(commandName)) {
 		return { type: "command", name: commandName };
 	}
 

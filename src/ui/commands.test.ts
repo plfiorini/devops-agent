@@ -16,11 +16,19 @@ test("parseInput keeps prompts intact", () => {
 	});
 	assert.deepEqual(parseInput("ask How do I roll back?"), {
 		type: "prompt",
-		prompt: "How do I roll back?",
+		prompt: "ask How do I roll back?",
 	});
 	assert.deepEqual(parseInput("help me debug Kubernetes"), {
 		type: "prompt",
 		prompt: "help me debug Kubernetes",
+	});
+	assert.deepEqual(parseInput("help"), {
+		type: "prompt",
+		prompt: "help",
+	});
+	assert.deepEqual(parseInput("exit"), {
+		type: "prompt",
+		prompt: "exit",
 	});
 });
 
