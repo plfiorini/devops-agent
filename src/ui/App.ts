@@ -425,6 +425,16 @@ function SidePanel({
 				status.activeProviderName ?? "not initialized",
 			),
 		),
+		h(
+			Text,
+			null,
+			h(React.Fragment, { key: "label" }, "Model: "),
+			h(
+				Text,
+				{ color: "green", key: "value" },
+				status.activeModelName ?? "not initialized",
+			),
+		),
 		h(Text, { dimColor: true }, `Messages: ${status.conversationCount}`),
 		h(Text, { dimColor: true }, `Tools: ${status.toolCount}`),
 		h(
@@ -446,14 +456,12 @@ function PanelTitle({ title }: { title: string }) {
 }
 
 function ProviderLine({ provider }: { provider: ProviderInfo }) {
-	const label = `${provider.enabled ? "on " : "off"} ${provider.name}${
-		provider.isDefault ? " default" : ""
-	}`;
-
 	return h(
-		Text,
-		{ color: provider.enabled ? "green" : "gray", wrap: "truncate-end" },
-		label,
+		Box,
+		{ flexDirection: "row", gap: 1 },
+		h(Text, { wrap: "truncate-end" }, provider.name),
+		h(Text, { color: provider.enabled ? "green" : "red" }, provider.enabled ? "ON" : "OFF"),
+		provider.isDefault ? h(Text, { color: "blue" }, "(default)") : undefined,
 	);
 }
 
@@ -617,6 +625,7 @@ function formatStatus(status: AgentStatus): string {
 
 	return [
 		`Active provider: ${status.activeProviderName ?? "not initialized"}`,
+		`Model: ${status.activeModelName ?? "not initialized"}`,
 		`Tools loaded: ${status.toolCount}`,
 		`Conversation messages: ${status.conversationCount}`,
 		"Providers:",

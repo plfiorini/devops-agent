@@ -17,6 +17,7 @@ export type ProviderInfo = {
 export type AgentStatus = {
 	initialized: boolean;
 	activeProviderName?: string;
+	activeModelName?: string;
 	providers: ProviderInfo[];
 	toolCount: number;
 	conversationCount: number;
@@ -33,6 +34,7 @@ const providerLabels: Record<ConfigProvider, string> = {
 export class Agent {
 	private provider?: Provider = undefined;
 	private providerName?: string = undefined;
+	private modelName?: string = undefined;
 	private initialized = false;
 	private providerInfo: ProviderInfo[] = [];
 	private conversationHistory: Message[] = [];
@@ -71,6 +73,7 @@ export class Agent {
 			logger.debug("Initializing with Gemini provider (default)");
 			this.provider = new GeminiProvider(config.providers.gemini, this.tools);
 			this.providerName = providerLabels.gemini;
+			this.modelName = config.providers.gemini.model;
 		} else if (
 			defaultProvider === "azure_openai" &&
 			config.providers.azure_openai?.enabled
@@ -81,6 +84,7 @@ export class Agent {
 				this.tools,
 			);
 			this.providerName = providerLabels.azure_openai;
+			this.modelName = config.providers.azure_openai.deployment_name;
 		} else if (
 			defaultProvider === "openai" &&
 			config.providers.openai?.enabled
@@ -88,6 +92,7 @@ export class Agent {
 			logger.debug("Initializing with OpenAI provider (default)");
 			this.provider = new OpenAIProvider(config.providers.openai, this.tools);
 			this.providerName = providerLabels.openai;
+			this.modelName = config.providers.openai.model;
 		} else if (
 			defaultProvider === "anthropic" &&
 			config.providers.anthropic?.enabled
@@ -98,6 +103,7 @@ export class Agent {
 				this.tools,
 			);
 			this.providerName = providerLabels.anthropic;
+			this.modelName = config.providers.anthropic.model;
 		} else if (
 			defaultProvider === "ollama" &&
 			config.providers.ollama?.enabled
@@ -105,16 +111,19 @@ export class Agent {
 			logger.debug("Initializing with Ollama provider (default)");
 			this.provider = new OllamaProvider(config.providers.ollama, this.tools);
 			this.providerName = providerLabels.ollama;
+			this.modelName = config.providers.ollama.model;
 		} else {
 			// Fallback to any enabled provider if default is not available
 			if (config.providers.ollama?.enabled) {
 				logger.debug("Initializing with Ollama provider (fallback)");
 				this.provider = new OllamaProvider(config.providers.ollama, this.tools);
 				this.providerName = providerLabels.ollama;
+				this.modelName = config.providers.ollama.model;
 			} else if (config.providers.gemini?.enabled) {
 				logger.debug("Initializing with Gemini provider (fallback)");
 				this.provider = new GeminiProvider(config.providers.gemini, this.tools);
 				this.providerName = providerLabels.gemini;
+				this.modelName = config.providers.gemini.model;
 			} else if (config.providers.azure_openai?.enabled) {
 				logger.debug("Initializing with Azure OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(
@@ -122,10 +131,12 @@ export class Agent {
 					this.tools,
 				);
 				this.providerName = providerLabels.azure_openai;
+				this.modelName = config.providers.azure_openai.deployment_name;
 			} else if (config.providers.openai?.enabled) {
 				logger.debug("Initializing with OpenAI provider (fallback)");
 				this.provider = new OpenAIProvider(config.providers.openai, this.tools);
 				this.providerName = providerLabels.openai;
+				this.modelName = config.providers.openai.model;
 			} else if (config.providers.anthropic?.enabled) {
 				logger.debug("Initializing with Anthropic provider (fallback)");
 				this.provider = new AnthropicProvider(
@@ -133,6 +144,7 @@ export class Agent {
 					this.tools,
 				);
 				this.providerName = providerLabels.anthropic;
+				this.modelName = config.providers.anthropic.model;
 			} else {
 				throw new Error("No enabled provider configuration found");
 			}
@@ -193,6 +205,7 @@ export class Agent {
 		return {
 			initialized: this.initialized,
 			activeProviderName: this.providerName,
+			activeModelName: this.modelName,
 			providers: this.getProviderInfo(),
 			toolCount: this.tools.length,
 			conversationCount: this.conversationHistory.length,
