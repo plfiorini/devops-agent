@@ -15,6 +15,7 @@
 		/* Transpilation: */
 		"module": "NodeNext",
 		"moduleResolution": "nodenext",
+		"rootDir": "src/",
 		"outDir": "dist/",
 		"sourceMap": true,
 		/* Language and Environment: */
