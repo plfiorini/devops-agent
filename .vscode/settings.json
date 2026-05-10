@@ -1,5 +1,7 @@
 {
 	"editor.formatOnSave": true,
+	"editor.formatOnPaste": true,
+	"editor.rulers": [80, 100, 120],
 	"github.copilot.chat.commitMessageGeneration.instructions": [
 		{
 			"file": ".agents/skills/git-commit/SKILL.md"
