@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { z } from "zod";
 import { Agent } from "../agent.ts";
 import type { Message, Provider, Tool } from "../types.ts";
@@ -50,7 +49,7 @@ function createProviderWithResponses(responses: unknown[]) {
 				create: async (params) => {
 					calls.push(params);
 					const response = responses.shift();
-					assert.ok(response, "fake response is available");
+					expect(response, "fake response is available").toBeTruthy();
 					return response;
 				},
 			},
@@ -93,17 +92,17 @@ test("OpenAI provider runs multiple tool rounds and persists generated messages"
 		messages: [{ role: "user", content: "inspect twice" }],
 	});
 
-	assert.equal(result.content, "done");
-	assert.equal(calls.length, 3);
-	assert.ok(calls[1]?.tools, "tools are included on the second model turn");
-	assert.ok(calls[2]?.tools, "tools are included on the final model turn");
-	assert.equal(result.messages.length, 5);
-	assert.equal(result.messages[0]?.role, "assistant");
-	assert.ok("toolCalls" in result.messages[0]);
-	assert.equal(result.messages[1]?.role, "tool");
-	assert.equal(result.messages[2]?.role, "assistant");
-	assert.equal(result.messages[3]?.role, "tool");
-	assert.deepEqual(result.messages[4], { role: "assistant", content: "done" });
+	expect(result.content).toBe("done");
+	expect(calls.length).toBe(3);
+	expect(calls[1]?.tools, "tools are included on the second model turn").toBeTruthy();
+	expect(calls[2]?.tools, "tools are included on the final model turn").toBeTruthy();
+	expect(result.messages.length).toBe(5);
+	expect(result.messages[0]?.role).toBe("assistant");
+	expect("toolCalls" in result.messages[0]).toBeTruthy();
+	expect(result.messages[1]?.role).toBe("tool");
+	expect(result.messages[2]?.role).toBe("assistant");
+	expect(result.messages[3]?.role).toBe("tool");
+	expect(result.messages[4]).toEqual({ role: "assistant", content: "done" });
 });
 
 test("OpenAI provider returns tool execution errors to the model", async () => {
@@ -136,7 +135,7 @@ test("OpenAI provider returns tool execution errors to the model", async () => {
 			completions: {
 				create: async () => {
 					const response = responses.shift();
-					assert.ok(response, "fake response is available");
+						expect(response, "fake response is available").toBeTruthy();
 					return response;
 				},
 			},
@@ -150,9 +149,9 @@ test("OpenAI provider returns tool execution errors to the model", async () => {
 	});
 
 	const toolResult = result.messages[1];
-	assert.equal(toolResult?.role, "tool");
-	assert.equal(toolResult.isError, true);
-	assert.match(toolResult.content, /boom/);
+	expect(toolResult?.role).toBe("tool");
+	expect((toolResult as Extract<typeof toolResult, { isError: unknown }>)?.isError).toBe(true);
+	expect((toolResult as Extract<typeof toolResult, { content: string }>)?.content).toMatch(/boom/);
 });
 
 test("Agent stores provider tool-call and tool-result messages in history", async () => {
@@ -179,7 +178,7 @@ test("Agent stores provider tool-call and tool-result messages in history", asyn
 
 	await agent.processMessage("inspect");
 
-	assert.deepEqual(agent.getConversationHistory(), [
+	expect(agent.getConversationHistory()).toEqual([
 		{ role: "user", content: "inspect" },
 		toolCallMessage,
 		toolResultMessage,

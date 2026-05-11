@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { z } from "zod";
 import type { Tool } from "../types.ts";
 import { AnthropicProvider } from "./anthropic.ts";
@@ -48,7 +47,7 @@ test("Anthropic provider converts schemas and runs repeated tool rounds", async 
 			create: async (params) => {
 				calls.push(params);
 				const response = responses.shift();
-				assert.ok(response, "fake response is available");
+					expect(response, "fake response is available").toBeTruthy();
 				return response;
 			},
 		},
@@ -60,20 +59,20 @@ test("Anthropic provider converts schemas and runs repeated tool rounds", async 
 		messages: [{ role: "user", content: "inspect twice" }],
 	});
 
-	assert.equal(result.content, "done");
-	assert.equal(calls.length, 3);
+	expect(result.content).toBe("done");
+	expect(calls.length).toBe(3);
 	const inputSchema = calls[0]?.tools?.[0]?.input_schema as
 		| { type?: string; properties?: unknown; parse?: unknown }
 		| undefined;
-	assert.equal(inputSchema?.type, "object");
-	assert.ok(inputSchema?.properties);
-	assert.equal(inputSchema?.parse, undefined);
-	assert.ok(calls[1]?.tools, "tools are included after tool results");
-	assert.equal(result.messages.length, 5);
-	assert.equal(result.messages[0]?.role, "assistant");
-	assert.ok("toolCalls" in result.messages[0]);
-	assert.equal(result.messages[1]?.role, "tool");
-	assert.equal(result.messages[2]?.role, "assistant");
-	assert.equal(result.messages[3]?.role, "tool");
-	assert.deepEqual(result.messages[4], { role: "assistant", content: "done" });
+	expect(inputSchema?.type).toBe("object");
+	expect(inputSchema?.properties).toBeTruthy();
+	expect(inputSchema?.parse).toBeUndefined();
+	expect(calls[1]?.tools, "tools are included after tool results").toBeTruthy();
+	expect(result.messages.length).toBe(5);
+	expect(result.messages[0]?.role).toBe("assistant");
+	expect("toolCalls" in result.messages[0]).toBeTruthy();
+	expect(result.messages[1]?.role).toBe("tool");
+	expect(result.messages[2]?.role).toBe("assistant");
+	expect(result.messages[3]?.role).toBe("tool");
+	expect(result.messages[4]).toEqual({ role: "assistant", content: "done" });
 });

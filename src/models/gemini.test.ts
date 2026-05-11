@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { z } from "zod";
 import type { Tool } from "../types.ts";
 import { GeminiProvider } from "./gemini.ts";
@@ -38,8 +37,8 @@ function makeFakeProvider(
 		sendMessage: async (content) => {
 			sentMessages.push(content);
 			const response = responses.shift();
-			assert.ok(response, "fake response is available");
-			return response;
+			expect(response, "fake response is available").toBeTruthy();
+			return response as FakeResult;
 		},
 	};
 	const fakeModel: FakeModel = {
@@ -80,15 +79,15 @@ test("Gemini provider runs multiple tool rounds and persists generated messages"
 		messages: [{ role: "user", content: "inspect twice" }],
 	});
 
-	assert.equal(result.content, "done");
-	assert.equal(sentMessages.length, 3);
-	assert.equal(result.messages.length, 5);
-	assert.equal(result.messages[0]?.role, "assistant");
-	assert.ok("toolCalls" in result.messages[0]);
-	assert.equal(result.messages[1]?.role, "tool");
-	assert.equal(result.messages[2]?.role, "assistant");
-	assert.equal(result.messages[3]?.role, "tool");
-	assert.deepEqual(result.messages[4], { role: "assistant", content: "done" });
+	expect(result.content).toBe("done");
+	expect(sentMessages.length).toBe(3);
+	expect(result.messages.length).toBe(5);
+	expect(result.messages[0]?.role).toBe("assistant");
+	expect("toolCalls" in result.messages[0]).toBeTruthy();
+	expect(result.messages[1]?.role).toBe("tool");
+	expect(result.messages[2]?.role).toBe("assistant");
+	expect(result.messages[3]?.role).toBe("tool");
+	expect(result.messages[4]).toEqual({ role: "assistant", content: "done" });
 });
 
 test("Gemini provider uses stable monotonic IDs for tool calls", async () => {
@@ -115,15 +114,19 @@ test("Gemini provider uses stable monotonic IDs for tool calls", async () => {
 		messages: [{ role: "user", content: "inspect two paths" }],
 	});
 
-	assert.equal(result.messages.length, 4);
+	expect(result.messages.length).toBe(4);
 	const assistantMsg = result.messages[0];
-	assert.ok(assistantMsg && "toolCalls" in assistantMsg);
+	expect(assistantMsg && "toolCalls" in assistantMsg).toBeTruthy();
 	const toolResult0 = result.messages[1];
 	const toolResult1 = result.messages[2];
-	assert.ok(toolResult0?.role === "tool");
-	assert.ok(toolResult1?.role === "tool");
-	assert.equal(toolResult0.toolCallId, assistantMsg.toolCalls[0]?.id);
-	assert.equal(toolResult1.toolCallId, assistantMsg.toolCalls[1]?.id);
+	expect(toolResult0?.role).toBe("tool");
+	expect(toolResult1?.role).toBe("tool");
+	expect(toolResult0?.toolCallId).toBe(
+		(assistantMsg as Extract<typeof assistantMsg, { toolCalls: unknown[] }>).toolCalls[0]?.id,
+	);
+	expect(toolResult1?.toolCallId).toBe(
+		(assistantMsg as Extract<typeof assistantMsg, { toolCalls: unknown[] }>).toolCalls[1]?.id,
+	);
 });
 
 test("Gemini provider returns tool execution errors to the model", async () => {
@@ -157,7 +160,7 @@ test("Gemini provider returns tool execution errors to the model", async () => {
 	});
 
 	const toolResult = result.messages[1];
-	assert.equal(toolResult?.role, "tool");
-	assert.equal(toolResult.isError, true);
-	assert.match(toolResult.content, /boom/);
+	expect(toolResult?.role).toBe("tool");
+	expect((toolResult as Extract<typeof toolResult, { isError: unknown }>)?.isError).toBe(true);
+	expect((toolResult as Extract<typeof toolResult, { content: string }>)?.content).toMatch(/boom/);
 });

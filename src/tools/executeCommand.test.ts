@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import executeCommand from "./executeCommand.ts";
 
 type CommandResult = {
@@ -23,25 +22,25 @@ async function runCommand(args: {
 test("execute_command runs a basic command", async () => {
 	const result = await runCommand({ command: "pwd" });
 
-	assert.equal(result.ok, true);
-	assert.match(result.stdout, /devops-agent/);
-	assert.equal(result.exitCode, 0);
+	expect(result.ok).toBe(true);
+	expect(result.stdout).toMatch(/devops-agent/);
+	expect(result.exitCode).toBe(0);
 });
 
 test("execute_command reports command timeouts", async () => {
 	const result = await runCommand({ command: "sleep 1", timeoutMs: 10 });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.timedOut, true);
-	assert.match(result.error ?? "", /timed out/);
+	expect(result.ok).toBe(false);
+	expect(result.timedOut).toBe(true);
+	expect(result.error ?? "").toMatch(/timed out/);
 });
 
 test("execute_command returns nonzero exits as structured failures", async () => {
 	const result = await runCommand({ command: "false" });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.exitCode, 1);
-	assert.equal(result.timedOut, false);
+	expect(result.ok).toBe(false);
+	expect(result.exitCode).toBe(1);
+	expect(result.timedOut).toBe(false);
 });
 
 test("execute_command truncates large output", async () => {
@@ -51,7 +50,7 @@ test("execute_command truncates large output", async () => {
 		maxOutputChars: 100,
 	});
 
-	assert.equal(result.ok, true);
-	assert.equal(result.truncated, true);
-	assert.match(result.output, /output truncated/);
+	expect(result.ok).toBe(true);
+	expect(result.truncated).toBe(true);
+	expect(result.output).toMatch(/output truncated/);
 });
