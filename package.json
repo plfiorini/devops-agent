@@ -25,17 +25,17 @@
 		"format": "biome format",
 		"format:write": "biome format --write",
 		"lint": "biome lint",
-		"test": "bun --test src/**/*.test.ts",
+		"test": "bun --test src/**/*.test.ts src/**/*.test.tsx",
 		"start": "bun src/index.ts",
 		"dev": "bun --watch src/index.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",
 		"@types/marked-terminal": "^6.1.1",
-		"@types/node": "^24.0.1",
+		"@types/node": "^24.12.3",
 		"@types/react": "^19.2.14",
 		"ink-testing-library": "^4.0.0",
-		"typescript": "^5.8.3"
+		"typescript": "^5.9.3"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.54.0",
@@ -43,10 +43,10 @@
 		"ink": "^7.0.2",
 		"marked": "^15.0.12",
 		"marked-terminal": "^7.3.0",
-		"openai": "^5.3.0",
+		"openai": "^5.23.2",
 		"react": "^19.2.6",
-		"yaml": "^2.8.0",
-		"zod": "^3.25.62",
-		"zod-to-json-schema": "^3.24.5"
+		"yaml": "^2.9.0",
+		"zod": "^3.25.76",
+		"zod-to-json-schema": "^3.25.2"
 	}
 }

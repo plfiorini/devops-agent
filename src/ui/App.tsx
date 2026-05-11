@@ -1,11 +1,5 @@
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
-import React, {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Agent, type AgentStatus, type ProviderInfo } from "../agent.ts";
 import {
 	type LogLevel,
@@ -42,7 +36,6 @@ export type DevOpsAgentAppProps = {
 };
 
 const panels: Panel[] = ["status", "tools", "help"];
-const h = React.createElement;
 
 export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 	const { exit } = useApp();
@@ -195,7 +188,9 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 					const providerKey =
 						colonIndex >= 0 ? args.slice(0, colonIndex) : args;
 					const modelOverride =
-						colonIndex >= 0 ? args.slice(colonIndex + 1) || undefined : undefined;
+						colonIndex >= 0
+							? args.slice(colonIndex + 1) || undefined
+							: undefined;
 					try {
 						await appAgent.switchProvider(providerKey, modelOverride);
 						refreshAgentState();
@@ -304,57 +299,51 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 	const panelHeight = isWide ? undefined : Math.max(7, Math.min(10, rows - 12));
 	const maxEntries = Math.max(4, rows - (isWide ? 9 : 17));
 
-	return h(
-		Box,
-		{ flexDirection: "column", height: rows > 0 ? rows : 24 },
-		h(Header, {
-			status,
-			isInitializing,
-			isProcessing,
-		}),
-		h(
-			Box,
-			{ flexDirection: isWide ? "row" : "column", flexGrow: 1, gap: 1 },
-			h(
-				Box,
-				{
-					borderColor: "cyan",
-					borderStyle: "round",
-					flexDirection: "column",
-					flexGrow: 1,
-					minHeight: 8,
-					overflow: "hidden",
-					paddingX: 1,
-				},
-				h(Transcript, { entries: entries.slice(-maxEntries) }),
-			),
-			h(
-				Box,
-				{
-					borderColor: "gray",
-					borderStyle: "round",
-					flexDirection: "column",
-					height: panelHeight,
-					overflow: "hidden",
-					paddingX: 1,
-					width: isWide ? 36 : undefined,
-				},
-				h(SidePanel, {
-					activePanel,
-					status,
-					tools,
-					startupError,
-				}),
-			),
-		),
-		h(Composer, {
-			disabled: isInitializing || isProcessing,
-			value: composerValue,
-			onChange: setComposerValue,
-			onCyclePanel: cyclePanel,
-			onSubmit: handleSubmit,
-		}),
-		h(Footer, { activePanel }),
+	return (
+		<Box flexDirection="column" height={rows > 0 ? rows : 24}>
+			<Header
+				status={status}
+				isInitializing={isInitializing}
+				isProcessing={isProcessing}
+			/>
+			<Box flexDirection={isWide ? "row" : "column"} flexGrow={1} gap={1}>
+				<Box
+					borderColor="cyan"
+					borderStyle="round"
+					flexDirection="column"
+					flexGrow={1}
+					minHeight={8}
+					overflow="hidden"
+					paddingX={1}
+				>
+					<Transcript entries={entries.slice(-maxEntries)} />
+				</Box>
+				<Box
+					borderColor="gray"
+					borderStyle="round"
+					flexDirection="column"
+					height={panelHeight}
+					overflow="hidden"
+					paddingX={1}
+					width={isWide ? 36 : undefined}
+				>
+					<SidePanel
+						activePanel={activePanel}
+						status={status}
+						tools={tools}
+						startupError={startupError}
+					/>
+				</Box>
+			</Box>
+			<Composer
+				disabled={isInitializing || isProcessing}
+				value={composerValue}
+				onChange={setComposerValue}
+				onCyclePanel={cyclePanel}
+				onSubmit={handleSubmit}
+			/>
+			<Footer activePanel={activePanel} />
+		</Box>
 	);
 }
 
@@ -376,51 +365,49 @@ function Header({
 			? "working"
 			: "ready";
 
-	return h(
-		Box,
-		{ justifyContent: "space-between", paddingX: 1 },
-		h(Text, { bold: true, color: "cyan" }, "DevOps Agent"),
-		h(
-			Box,
-			{ gap: 2 },
-			h(Text, { color: "green" }, status.activeProviderName ?? "No provider"),
-			h(
-				Text,
-				{ dimColor: true },
-				`${enabledProviders.length}/${status.providers.length} providers`,
-			),
-			h(Text, { dimColor: true }, `${status.toolCount} tools`),
-			h(Text, { color: isProcessing ? "yellow" : "green" }, state),
-		),
+	return (
+		<Box justifyContent="space-between" paddingX={1}>
+			<Text bold color="cyan">
+				DevOps Agent
+			</Text>
+			<Box gap={2}>
+				<Text color="green">{status.activeProviderName ?? "No provider"}</Text>
+				<Text
+					dimColor
+				>{`${enabledProviders.length}/${status.providers.length} providers`}</Text>
+				<Text dimColor>{`${status.toolCount} tools`}</Text>
+				<Text color={isProcessing ? "yellow" : "green"}>{state}</Text>
+			</Box>
+		</Box>
 	);
 }
 
 function Transcript({ entries }: { entries: TranscriptEntry[] }) {
 	if (entries.length === 0) {
-		return h(
-			Box,
-			{ flexGrow: 1, justifyContent: "center" },
-			h(Text, { dimColor: true }, "Ask a DevOps question or type /help."),
+		return (
+			<Box flexGrow={1} justifyContent="center">
+				<Text dimColor>Ask a DevOps question or type /help.</Text>
+			</Box>
 		);
 	}
 
-	return h(
-		Box,
-		{ flexDirection: "column" },
-		entries.map((entry) => h(TranscriptRow, { entry, key: entry.id })),
+	return (
+		<Box flexDirection="column">
+			{entries.map((entry) => (
+				<TranscriptRow entry={entry} key={entry.id} />
+			))}
+		</Box>
 	);
 }
 
 function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
-	return h(
-		Box,
-		{ flexDirection: "column", marginBottom: 1 },
-		h(
-			Text,
-			{ bold: entry.kind === "error", color: entryColor(entry.kind) },
-			entryLabel(entry.kind),
-		),
-		h(Text, { wrap: "wrap" }, entry.content),
+	return (
+		<Box flexDirection="column" marginBottom={1}>
+			<Text bold={entry.kind === "error"} color={entryColor(entry.kind)}>
+				{entryLabel(entry.kind)}
+			</Text>
+			<Text wrap="wrap">{entry.content}</Text>
+		</Box>
 	);
 }
 
@@ -436,88 +423,78 @@ function SidePanel({
 	startupError?: string;
 }) {
 	if (activePanel === "help") {
-		return h(
-			React.Fragment,
-			null,
-			h(PanelTitle, { title: "Help" }),
-			h(Text, { wrap: "wrap" }, helpText),
+		return (
+			<>
+				<PanelTitle title="Help" />
+				<Text wrap="wrap">{helpText}</Text>
+			</>
 		);
 	}
 
 	if (activePanel === "tools") {
-		return h(
-			React.Fragment,
-			null,
-			h(PanelTitle, { title: "Tools" }),
-			tools.length === 0
-				? h(Text, { dimColor: true }, "No tools loaded.")
-				: tools.map((tool) =>
-						h(
-							Box,
-							{
-								flexDirection: "column",
-								key: tool.name,
-								marginBottom: 1,
-							},
-							h(Text, { color: "green" }, tool.name),
-							h(Text, { dimColor: true, wrap: "wrap" }, tool.description),
-						),
-					),
+		return (
+			<>
+				<PanelTitle title="Tools" />
+				{tools.length === 0 ? (
+					<Text dimColor>No tools loaded.</Text>
+				) : (
+					tools.map((tool) => (
+						<Box flexDirection="column" key={tool.name} marginBottom={1}>
+							<Text color="green">{tool.name}</Text>
+							<Text dimColor wrap="wrap">
+								{tool.description}
+							</Text>
+						</Box>
+					))
+				)}
+			</>
 		);
 	}
 
-	return h(
-		React.Fragment,
-		null,
-		h(PanelTitle, { title: "Status" }),
-		startupError ? h(Text, { color: "red" }, startupError) : undefined,
-		h(
-			Text,
-			null,
-			h(React.Fragment, { key: "label" }, "Active: "),
-			h(
-				Text,
-				{ color: "green", key: "value" },
-				status.activeProviderName ?? "not initialized",
-			),
-		),
-		h(
-			Text,
-			null,
-			h(React.Fragment, { key: "label" }, "Model: "),
-			h(
-				Text,
-				{ color: "green", key: "value" },
-				status.activeModelName ?? "not initialized",
-			),
-		),
-		h(Text, { dimColor: true }, `Messages: ${status.conversationCount}`),
-		h(Text, { dimColor: true }, `Tools: ${status.toolCount}`),
-		h(
-			Box,
-			{ flexDirection: "column", marginTop: 1 },
-			status.providers.map((provider) =>
-				h(ProviderLine, { key: provider.name, provider }),
-			),
-		),
+	return (
+		<>
+			<PanelTitle title="Status" />
+			{startupError && <Text color="red">{startupError}</Text>}
+			<Text>
+				{"Active: "}
+				<Text color="green">
+					{status.activeProviderName ?? "not initialized"}
+				</Text>
+			</Text>
+			<Text>
+				{"Model: "}
+				<Text color="green">{status.activeModelName ?? "not initialized"}</Text>
+			</Text>
+			<Text dimColor>{`Messages: ${status.conversationCount}`}</Text>
+			<Text dimColor>{`Tools: ${status.toolCount}`}</Text>
+			<Box flexDirection="column" marginTop={1}>
+				{status.providers.map((provider) => (
+					<ProviderLine key={provider.name} provider={provider} />
+				))}
+			</Box>
+		</>
 	);
 }
 
 function PanelTitle({ title }: { title: string }) {
-	return h(
-		Box,
-		{ marginBottom: 1 },
-		h(Text, { bold: true, color: "cyan" }, title),
+	return (
+		<Box marginBottom={1}>
+			<Text bold color="cyan">
+				{title}
+			</Text>
+		</Box>
 	);
 }
 
 function ProviderLine({ provider }: { provider: ProviderInfo }) {
-	return h(
-		Box,
-		{ flexDirection: "row", gap: 1 },
-		h(Text, { wrap: "truncate-end" }, provider.name),
-		h(Text, { color: provider.enabled ? "green" : "red" }, provider.enabled ? "ON" : "OFF"),
-		provider.isDefault ? h(Text, { color: "blue" }, "(default)") : undefined,
+	return (
+		<Box flexDirection="row" gap={1}>
+			<Text wrap="truncate-end">{provider.name}</Text>
+			<Text color={provider.enabled ? "green" : "red"}>
+				{provider.enabled ? "ON" : "OFF"}
+			</Text>
+			{provider.isDefault && <Text color="blue">(default)</Text>}
+		</Box>
 	);
 }
 
@@ -594,40 +571,33 @@ function Composer({
 
 	const lines = value.length > 0 ? value.split("\n") : [""];
 
-	return h(
-		Box,
-		{
-			borderColor: disabled ? "gray" : "green",
-			borderStyle: "round",
-			flexDirection: "column",
-			minHeight: 3,
-			paddingX: 1,
-		},
-		lines.map((line, index) =>
-			h(
-				Box,
-				{ key: index },
-				h(Text, { color: "green" }, index === 0 ? "> " : "  "),
-				h(
-					Text,
-					{ dimColor: value.length === 0 },
-					line || (index === 0 ? "Type a message or /help" : " "),
-				),
-			),
-		),
+	return (
+		<Box
+			borderColor={disabled ? "gray" : "green"}
+			borderStyle="round"
+			flexDirection="column"
+			minHeight={3}
+			paddingX={1}
+		>
+			{lines.map((line, index) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: lines are positional with no stable identity
+				<Box key={`line-${index}`}>
+					<Text color="green">{index === 0 ? "> " : "  "}</Text>
+					<Text dimColor={value.length === 0}>
+						{line || (index === 0 ? "Type a message or /help" : " ")}
+					</Text>
+				</Box>
+			))}
+		</Box>
 	);
 }
 
 function Footer({ activePanel }: { activePanel: Panel }) {
-	return h(
-		Box,
-		{ justifyContent: "space-between", paddingX: 1 },
-		h(
-			Text,
-			{ dimColor: true },
-			"Enter send | Ctrl+J newline | Esc clear | /exit quit",
-		),
-		h(Text, { dimColor: true }, `Panel: ${activePanel} | Ctrl+P cycle`),
+	return (
+		<Box justifyContent="space-between" paddingX={1}>
+			<Text dimColor>Enter send | Ctrl+J newline | Esc clear | /exit quit</Text>
+			<Text dimColor>{`Panel: ${activePanel} | Ctrl+P cycle`}</Text>
+		</Box>
 	);
 }
 

@@ -4,7 +4,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import type { AgentStatus } from "../agent.ts";
 import type { Tool } from "../types.ts";
-import { type AgentClient, DevOpsAgentApp } from "./App.ts";
+import { type AgentClient, DevOpsAgentApp } from "./App.tsx";
 
 const ansiPattern = new RegExp(
 	`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
@@ -62,12 +62,21 @@ class FakeAgent implements AgentClient {
 	getStatus(): AgentStatus {
 		return this.#status;
 	}
+
+	async switchProvider(providerKey: string, model?: string): Promise<void> {
+		this.#status = { ...this.#status, activeProviderName: providerKey };
+		if (model) {
+			this.#status = { ...this.#status, activeModelName: model };
+		}
+	}
+
+	async switchModel(model: string): Promise<void> {
+		this.#status = { ...this.#status, activeModelName: model };
+	}
 }
 
 test("renders the Ink TUI shell", async () => {
-	const instance = render(
-		React.createElement(DevOpsAgentApp, { agent: new FakeAgent() }),
-	);
+	const instance = render(<DevOpsAgentApp agent={new FakeAgent()} />);
 
 	await waitForRender();
 
@@ -81,9 +90,7 @@ test("renders the Ink TUI shell", async () => {
 });
 
 test("Composer accumulates characters typed in rapid succession", async () => {
-	const instance = render(
-		React.createElement(DevOpsAgentApp, { agent: new FakeAgent() }),
-	);
+	const instance = render(<DevOpsAgentApp agent={new FakeAgent()} />);
 	await waitForRender();
 
 	// Type "abc" without waiting for a render between characters.
@@ -100,9 +107,7 @@ test("Composer accumulates characters typed in rapid succession", async () => {
 });
 
 test("Composer deletes one character per Backspace even when fired rapidly", async () => {
-	const instance = render(
-		React.createElement(DevOpsAgentApp, { agent: new FakeAgent() }),
-	);
+	const instance = render(<DevOpsAgentApp agent={new FakeAgent()} />);
 	await waitForRender();
 
 	instance.stdin.write("a");
@@ -124,9 +129,7 @@ test("Composer deletes one character per Backspace even when fired rapidly", asy
 });
 
 test("Composer clears on Esc", async () => {
-	const instance = render(
-		React.createElement(DevOpsAgentApp, { agent: new FakeAgent() }),
-	);
+	const instance = render(<DevOpsAgentApp agent={new FakeAgent()} />);
 	await waitForRender();
 
 	instance.stdin.write("hello");
