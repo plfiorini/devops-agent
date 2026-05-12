@@ -50,10 +50,17 @@ export function App({ agent }: AppProps) {
 		conversationCount: 0,
 	});
 	const [, setTools] = useState<Tool[]>([]);
+	const FIXED_ROWS = 13; // outer padding(2) + header(6) + prompt(3) + footer(2)
+	const [scrollHeight, setScrollHeight] = useState(() =>
+		Math.max(1, (stdout?.rows ?? 24) - FIXED_ROWS),
+	);
 
 	// Handle terminal resizing due to manual window change
 	useEffect(() => {
-		const handleResize = () => scrollRef.current?.remeasure();
+		const handleResize = () => {
+			scrollRef.current?.remeasure();
+			setScrollHeight(Math.max(1, (stdout?.rows ?? 24) - FIXED_ROWS));
+		};
 		stdout?.on("resize", handleResize);
 		return () => {
 			stdout?.off("resize", handleResize);
@@ -332,7 +339,7 @@ export function App({ agent }: AppProps) {
 		<Box flexDirection="column" padding={1}>
 			<Header />
 			<Box flexDirection="column" width="100%" flexGrow={1} flexShrink={1}>
-				<ScrollView ref={scrollRef}>
+				<ScrollView ref={scrollRef} height={scrollHeight}>
 					<Transcript entries={entries} />
 					{isProcessing && <Processing />}
 				</ScrollView>
