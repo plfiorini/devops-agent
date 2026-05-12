@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import { z } from "zod";
 import type { Tool } from "../types.ts";
 
@@ -44,62 +46,18 @@ const OutputSchema = z
 
 type CommandResult = z.infer<typeof OutputSchema>;
 
-function makeResult(
-	command: string,
-	fields: Omit<CommandResult, "command" | "output" | "truncated"> & {
-		truncated?: boolean;
-	},
-	maxOutputChars = DEFAULT_MAX_OUTPUT_CHARS,
-): CommandResult {
-	const { output, truncated } = formatOutput(
-		fields.stdout,
-		fields.stderr || (!fields.ok && fields.error ? fields.error : ""),
-		maxOutputChars,
-	);
-
-	return {
-		...fields,
-		command,
-		output,
-		truncated: fields.truncated || truncated,
-	};
-}
-
-function formatOutput(
-	stdout: string,
-	stderr: string,
-	maxOutputChars: number,
-): { output: string; truncated: boolean } {
-	const sections: string[] = [];
-	if (stdout) {
-		sections.push(`STDOUT:\n${stdout}`);
-	}
-	if (stderr) {
-		sections.push(`STDERR:\n${stderr}`);
-	}
-
-	const output =
-		sections.join("\n") || "Command executed successfully (no output)";
-	if (output.length <= maxOutputChars) {
-		return { output, truncated: false };
-	}
-
-	return {
-		output: `${output.slice(0, maxOutputChars)}\n[output truncated]`,
-		truncated: true,
-	};
-}
-
 class ExecuteCommandTool implements Tool {
 	name = "execute_command";
 	description = "Execute a shell command on the system";
 	inputSchema = InputSchema;
 	outputSchema = OutputSchema;
-	execute = async (args: z.infer<typeof InputSchema>) => {
-		const { exec } = await import("node:child_process");
-		const { promisify } = await import("node:util");
-		const execAsync = promisify(exec);
+	isError = (result: CommandResult) => !result.ok;
+	formatResult = (result: CommandResult): string =>
+		result.output ||
+		result.error ||
+		"Command executed successfully (no output)";
 
+	execute = (args: z.infer<typeof InputSchema>): Promise<CommandResult> => {
 		const {
 			command,
 			workingDirectory,
@@ -107,52 +65,94 @@ class ExecuteCommandTool implements Tool {
 			maxOutputChars = DEFAULT_MAX_OUTPUT_CHARS,
 		} = args;
 
-		try {
-			const options = {
-				...(workingDirectory ? { cwd: workingDirectory } : {}),
-				timeout: timeoutMs,
-				maxBuffer: Math.max(maxOutputChars * 4, 1024 * 1024),
-			};
-			const { stdout, stderr } = await execAsync(command, options);
+		return new Promise((resolve) => {
+			const child = spawn("/bin/sh", ["-c", command], {
+				cwd: workingDirectory,
+				stdio: ["ignore", "pipe", "pipe"],
+			});
 
-			return makeResult(
-				command,
-				{
-					ok: true,
+			let stdout = "";
+			let stderr = "";
+			let output = "";
+			let truncated = false;
+
+			const appendOutput = (chunk: string) => {
+				if (truncated) return;
+				const remaining = maxOutputChars - output.length;
+				if (chunk.length > remaining) {
+					output += `${chunk.slice(0, remaining)}\n[output truncated]`;
+					truncated = true;
+				} else {
+					output += chunk;
+				}
+			};
+
+			const stdoutDecoder = new StringDecoder("utf8");
+			const stderrDecoder = new StringDecoder("utf8");
+
+			child.stdout?.on("data", (data: Buffer) => {
+				const s = stdoutDecoder.write(data);
+				stdout += s;
+				appendOutput(s);
+			});
+
+			child.stderr?.on("data", (data: Buffer) => {
+				const s = stderrDecoder.write(data);
+				stderr += s;
+				appendOutput(s);
+			});
+
+			let timedOut = false;
+			const timer = setTimeout(() => {
+				timedOut = true;
+				child.kill("SIGTERM");
+			}, timeoutMs);
+
+			child.on("close", (code, signal) => {
+				clearTimeout(timer);
+				// Flush any remaining buffered bytes from the decoders.
+				const stdoutRemainder = stdoutDecoder.end();
+				const stderrRemainder = stderrDecoder.end();
+				if (stdoutRemainder) {
+					stdout += stdoutRemainder;
+					appendOutput(stdoutRemainder);
+				}
+				if (stderrRemainder) {
+					stderr += stderrRemainder;
+					appendOutput(stderrRemainder);
+				}
+				resolve({
+					ok: code === 0 && !timedOut,
+					command,
 					stdout,
 					stderr,
-					exitCode: 0,
+					output,
+					exitCode: code,
+					signal: signal ?? null,
+					timedOut,
+					truncated,
+					...(timedOut
+						? { error: `Command timed out after ${timeoutMs}ms` }
+						: {}),
+				});
+			});
+
+			child.on("error", (err) => {
+				clearTimeout(timer);
+				resolve({
+					ok: false,
+					command,
+					stdout,
+					stderr,
+					output: output || err.message,
+					exitCode: null,
 					signal: null,
 					timedOut: false,
-				},
-				maxOutputChars,
-			);
-		} catch (error: unknown) {
-			const execError = error as Error & {
-				code?: number;
-				signal?: string;
-				stdout?: string;
-				stderr?: string;
-				killed?: boolean;
-			};
-			const timedOut =
-				execError.killed === true || execError.signal === "SIGTERM";
-			return makeResult(
-				command,
-				{
-					ok: false,
-					stdout: execError.stdout ?? "",
-					stderr: execError.stderr ?? "",
-					exitCode: typeof execError.code === "number" ? execError.code : null,
-					signal: execError.signal ?? null,
-					timedOut,
-					error: timedOut
-						? `Command timed out after ${timeoutMs}ms`
-						: execError.message,
-				},
-				maxOutputChars,
-			);
-		}
+					truncated,
+					error: err.message,
+				});
+			});
+		});
 	};
 }
 

@@ -1,32 +1,25 @@
-import { Box, Text, useApp, useInput, useStdout } from "ink";
-import Markdown from "ink-markdown-es";
-import { ScrollView, type ScrollViewRef } from "ink-scroll-view";
-import Spinner from "ink-spinner";
-import TextInput from "ink-text-input";
+import { Box, Static, useApp } from "ink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Agent, type AgentStatus, type ProviderInfo } from "../agent.ts";
-import { formatLogArgs, resetLoggerSink, setLoggerSink } from "../logger.ts";
-import type { Tool } from "../types.ts";
+import { Agent, type AgentStatus } from "../agent.ts";
+import {
+	formatLogArgs,
+	type LogLevel,
+	resetLoggerSink,
+	setLoggerSink,
+} from "../logger.ts";
+import type { Tool, ToolCall } from "../types.ts";
+import { Composer } from "./Composer.tsx";
 import { helpText, parseInput, type UiCommandName } from "./commands.ts";
-
-type EntryKind = "user" | "assistant" | "system" | "error" | "command";
-
-type TranscriptEntry = {
-	id: string;
-	kind: EntryKind;
-	content: string;
-};
-
-export type AgentClient = {
-	initialize: () => Promise<void>;
-	processMessage: (prompt: string) => Promise<string>;
-	clearConversationHistory: () => void;
-	getAvailableTools: () => Tool[];
-	getProviderInfo: () => ProviderInfo[];
-	getStatus: () => AgentStatus;
-	switchProvider: (providerKey: string, model?: string) => Promise<void>;
-	switchModel: (model: string) => Promise<void>;
-};
+import { Footer } from "./Footer.tsx";
+import { Header } from "./Header.tsx";
+import { Spinner } from "./Spinner.tsx";
+import { StatusLine } from "./StatusLine.tsx";
+import { LiveToolCalls, Transcript } from "./Transcript.tsx";
+import type {
+	AgentClient,
+	TranscriptEntry,
+	TranscriptToolCall,
+} from "./types.ts";
 
 export type AppProps = {
 	agent?: AgentClient;
@@ -34,194 +27,90 @@ export type AppProps = {
 
 export function App({ agent }: AppProps) {
 	const { exit } = useApp();
-	const appAgent = useMemo<AgentClient>(() => agent ?? new Agent(), [agent]);
-	const scrollRef = useRef<ScrollViewRef>(null);
-	const { stdout } = useStdout();
-	const entryIndex = useRef(0);
+	const client = useMemo<AgentClient>(() => agent ?? new Agent(), [agent]);
+
+	const entryId = useRef(0);
 	const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-	const [input, setInput] = useState("");
+	const [status, setStatus] = useState<AgentStatus>(() => client.getStatus());
 	const [isInitializing, setIsInitializing] = useState(true);
 	const [isProcessing, setIsProcessing] = useState(false);
-	const [startupError, setStartupError] = useState<string | undefined>();
-	const [status, setStatus] = useState<AgentStatus>({
-		initialized: false,
-		providers: [],
-		toolCount: 0,
-		conversationCount: 0,
-	});
+	const [processingStartedAt, setProcessingStartedAt] = useState<number>(0);
 	const [, setTools] = useState<Tool[]>([]);
-	const FIXED_ROWS = 13; // outer padding(2) + header(6) + prompt(3) + footer(2)
-	const [scrollHeight, setScrollHeight] = useState(() =>
-		Math.max(1, (stdout?.rows ?? 24) - FIXED_ROWS),
-	);
-
-	// Handle terminal resizing due to manual window change
-	useEffect(() => {
-		const handleResize = () => {
-			scrollRef.current?.remeasure();
-			setScrollHeight(Math.max(1, (stdout?.rows ?? 24) - FIXED_ROWS));
-		};
-		stdout?.on("resize", handleResize);
-		return () => {
-			stdout?.off("resize", handleResize);
-		};
-	}, [stdout]);
-
-	// Scroll to bottom after new content is rendered
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Always scroll with new contents
-	useEffect(() => {
-		scrollRef.current?.scrollToBottom();
-	}, [entries, isProcessing]);
-
-	// Handle keyboard input
-	useInput(
-		(input, key) => {
-			const lowerInput = input.toLowerCase();
-
-			if (key.ctrl && lowerInput === "c") {
-				exit();
-			}
-
-			if (key.upArrow) {
-				scrollRef.current?.scrollBy(-1);
-			}
-			if (key.downArrow) {
-				scrollRef.current?.scrollBy(1);
-			}
-			if (key.pageUp) {
-				const height = scrollRef.current?.getViewportHeight() || 1;
-				scrollRef.current?.scrollBy(-height);
-			}
-			if (key.pageDown) {
-				const height = scrollRef.current?.getViewportHeight() || 1;
-				scrollRef.current?.scrollBy(height);
-			}
-		},
-		{
-			isActive: true,
-		},
-	);
+	const [liveToolCalls, setLiveToolCalls] = useState<
+		TranscriptToolCall[] | null
+	>(null);
 
 	// Append entry to transcript
 	const appendEntry = useCallback((entry: Omit<TranscriptEntry, "id">) => {
-		const id = String(entryIndex.current++);
-		setEntries((currentEntries) => [...currentEntries, { ...entry, id }]);
+		const id = String(entryId.current++);
+		setEntries((prev) => [...prev, { ...entry, id }]);
 	}, []);
 
 	// Refresh agent status and tools
-	const refreshAgentState = useCallback(() => {
-		setStatus(appAgent.getStatus());
-		setTools(appAgent.getAvailableTools());
-	}, [appAgent]);
+	const refreshStatus = useCallback(() => {
+		setStatus(client.getStatus());
+		setTools(client.getAvailableTools());
+	}, [client]);
 
-	// Show logs as entries
+	// One-shot startup: initialize the agent, surface a "ready" line.
 	useEffect(() => {
-		setLoggerSink((level: LogLevel, args: unknown[]) => {
-			if (level !== "warn") {
-				return;
-			}
-
-			appendEntry({
-				kind: "system",
-				content: `Warning: ${formatLogArgs(args)}`,
-			});
-		});
-
-		return () => {
-			resetLoggerSink();
-		};
-	}, [appendEntry]);
-
-	// Initialize agent on mount
-	useEffect(() => {
-		let isMounted = true;
-
-		async function initializeAgent() {
-			appendEntry({
-				kind: "system",
-				content: "Initializing providers and tools...",
-			});
-
+		let cancelled = false;
+		(async () => {
 			try {
-				await appAgent.initialize();
-
-				if (!isMounted) {
-					return;
-				}
-
-				const nextStatus = appAgent.getStatus();
-				setStatus(nextStatus);
-				setTools(appAgent.getAvailableTools());
-				appendEntry({
-					kind: "system",
-					content: `Ready. Active provider: ${
-						nextStatus.activeProviderName ?? "unknown"
-					}. Tools loaded: ${nextStatus.toolCount}.`,
-				});
+				await client.initialize();
+				if (cancelled) return;
+				const next = client.getStatus();
+				setStatus(next);
 			} catch (error) {
-				if (!isMounted) {
-					return;
-				}
-
-				const message = getErrorMessage(error);
-				setStartupError(message);
-				appendEntry({
-					kind: "error",
-					content: message,
-				});
+				if (cancelled) return;
+				appendEntry({ kind: "error", content: messageOf(error) });
 			} finally {
-				if (isMounted) {
-					setIsInitializing(false);
-				}
+				if (!cancelled) setIsInitializing(false);
 			}
-		}
-
-		void initializeAgent();
-
+		})();
 		return () => {
-			isMounted = false;
+			cancelled = true;
 		};
-	}, [appAgent, appendEntry]);
+	}, [client, appendEntry]);
 
 	// Handle commands
-	const handleCommand = useCallback(
-		async (commandName: UiCommandName, args?: string) => {
-			appendEntry({
-				kind: "command",
-				content: args ? `/${commandName} ${args}` : `/${commandName}`,
-			});
-
-			if (commandName === "exit") {
+	const runCommand = useCallback(
+		async (name: UiCommandName, args?: string) => {
+			if (name === "exit") {
 				exit();
 				return;
 			}
-
-			if (commandName === "help") {
-				appendEntry({ kind: "system", content: helpText });
+			if (name === "help") {
+				appendEntry({ kind: "agent", content: helpText });
 				return;
 			}
-
-			if (commandName === "tools") {
+			if (name === "tools") {
 				appendEntry({
-					kind: "system",
-					content: formatTools(appAgent.getAvailableTools()),
+					kind: "agent",
+					content: formatTools(client.getAvailableTools()),
 				});
 				return;
 			}
-
-			if (commandName === "status") {
+			if (name === "status") {
 				appendEntry({
-					kind: "system",
-					content: formatStatus(appAgent.getStatus()),
+					kind: "agent",
+					content: formatStatus(client.getStatus()),
 				});
 				return;
 			}
-
-			if (commandName === "provider") {
+			if (name === "clear") {
+				client.clearMessages();
+				entryId.current = 0;
+				setEntries([]);
+				refreshStatus();
+				appendEntry({ kind: "agent", content: "Conversation cleared." });
+				return;
+			}
+			if (name === "provider") {
 				if (!args) {
-					const currentStatus = appAgent.getStatus();
+					const currentStatus = client.getStatus();
 					appendEntry({
-						kind: "system",
+						kind: "agent",
 						content: `Active provider: ${currentStatus.activeProviderName ?? "none"} (model: ${currentStatus.activeModelName ?? "none"})`,
 					});
 				} else {
@@ -233,290 +122,234 @@ export function App({ agent }: AppProps) {
 							? args.slice(colonIndex + 1) || undefined
 							: undefined;
 					try {
-						await appAgent.switchProvider(providerKey, modelOverride);
-						refreshAgentState();
-						const nextStatus = appAgent.getStatus();
+						await client.switchProvider(providerKey, modelOverride);
+						refreshStatus();
+						const nextStatus = client.getStatus();
 						appendEntry({
-							kind: "system",
+							kind: "agent",
 							content: `Switched to ${nextStatus.activeProviderName} (model: ${nextStatus.activeModelName}). Conversation history cleared.`,
 						});
 					} catch (error) {
-						appendEntry({ kind: "error", content: getErrorMessage(error) });
+						appendEntry({ kind: "error", content: messageOf(error) });
 					}
 				}
 				return;
 			}
-
-			if (commandName === "model") {
+			if (name === "providers") {
+				const { providers } = client.getStatus();
+				const configured = providers.filter((p) => p.enabled);
+				appendEntry({
+					kind: "agent",
+					content:
+						configured.length > 0
+							? `Configured providers:\n${configured
+									.map(
+										(p) => `- ${p.name}${p.isDefault ? " (default)" : ""}`,
+									)
+									.join("\n")}`
+							: "No providers are currently enabled.",
+				});
+				return;
+			}
+			if (name === "model") {
 				if (!args) {
-					const currentStatus = appAgent.getStatus();
+					const currentStatus = client.getStatus();
 					appendEntry({
-						kind: "system",
+						kind: "agent",
 						content: `Active model: ${currentStatus.activeModelName ?? "none"} (provider: ${currentStatus.activeProviderName ?? "none"})`,
 					});
 				} else {
 					try {
-						await appAgent.switchModel(args);
-						refreshAgentState();
-						const nextStatus = appAgent.getStatus();
+						await client.switchModel(args);
+						refreshStatus();
+						const nextStatus = client.getStatus();
 						appendEntry({
-							kind: "system",
+							kind: "agent",
 							content: `Model switched to ${nextStatus.activeModelName}.`,
 						});
 					} catch (error) {
-						appendEntry({ kind: "error", content: getErrorMessage(error) });
+						appendEntry({ kind: "error", content: messageOf(error) });
 					}
 				}
 				return;
 			}
-
-			appAgent.clearConversationHistory();
-			entryIndex.current = 1;
-			setEntries([
-				{
-					id: "0",
-					kind: "system",
-					content: "Conversation cleared.",
-				},
-			]);
-			refreshAgentState();
-		},
-		[appAgent, appendEntry, exit, refreshAgentState],
-	);
-
-	const handleSubmit = useCallback(
-		async (value: string) => {
-			const parsedInput = parseInput(value);
-
-			if (parsedInput.type === "empty") {
-				return;
-			}
-
-			setInput("");
-
-			if (parsedInput.type === "invalid") {
-				appendEntry({ kind: "error", content: parsedInput.message });
-				return;
-			}
-
-			if (parsedInput.type === "command") {
-				void handleCommand(parsedInput.name, parsedInput.args);
-				return;
-			}
-
-			if (startupError || !status.initialized) {
+			if (name === "models") {
+				const providerStatus = client.getStatus();
+				if (!providerStatus.activeProviderName) {
+					appendEntry({
+						kind: "error",
+						content: "No active provider. Cannot list models.",
+					});
+					return;
+				}
+				const models = await client.getSupportedModels();
 				appendEntry({
-					kind: "error",
-					content: startupError ?? "Agent is still initializing.",
+					kind: "agent",
+					content: `Supported models for ${providerStatus.activeProviderName}:\n${models
+						.map((m) => `- ${m}`)
+						.join("\n")}`,
 				});
 				return;
 			}
+		},
+		[appendEntry, client, exit, refreshStatus],
+	);
 
-			appendEntry({ kind: "user", content: parsedInput.prompt });
+	// Show logs as entries
+	useEffect(() => {
+		setLoggerSink((level: LogLevel, args: unknown[]) => {
+			if (level !== "warn") {
+				return;
+			}
+
+			appendEntry({
+				kind: "agent",
+				content: `Warning: ${formatLogArgs(args)}`,
+			});
+		});
+
+		return () => {
+			resetLoggerSink();
+		};
+	}, [appendEntry]);
+
+	// Handle message submission
+	const handleSubmit = useCallback(
+		async (raw: string) => {
+			const parsed = parseInput(raw);
+			if (parsed.type === "empty") return;
+
+			if (parsed.type === "invalid") {
+				appendEntry({ kind: "error", content: parsed.message });
+				return;
+			}
+
+			if (parsed.type === "command") {
+				appendEntry({
+					kind: "command",
+					content: `/${parsed.name}${parsed.args ? ` ${parsed.args}` : ""}`,
+				});
+				runCommand(parsed.name, parsed.args);
+				return;
+			}
+
+			if (!status.initialized) {
+				appendEntry({ kind: "error", content: "Agent is still initializing." });
+				return;
+			}
+
+			appendEntry({ kind: "user", content: parsed.prompt });
+			setProcessingStartedAt(Date.now());
 			setIsProcessing(true);
 
+			let pendingToolEntry: Omit<TranscriptEntry, "id"> | null = null;
+
 			try {
-				const response = await appAgent.processMessage(parsedInput.prompt);
-				appendEntry({ kind: "assistant", content: response.trimEnd() });
-				refreshAgentState();
+				for await (const response of client.chat(parsed.prompt)) {
+					if (response.role === "tool") {
+						// ToolResultMessage — update the matching live tool call immutably;
+						// the pending entry commits at the next assistant message or in finally.
+						if (pendingToolEntry?.toolCalls) {
+							// Snapshot into a const so TypeScript preserves the narrowed
+							// (non-null) type through the subsequent findIndex/map calls.
+							const entry: Omit<TranscriptEntry, "id"> = pendingToolEntry;
+							// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+							const existingCalls = entry.toolCalls!;
+							const toolCallIndex = existingCalls.findIndex(
+								(c) => c.id === response.toolCallId,
+							);
+							if (toolCallIndex !== -1) {
+								const updatedToolCalls: TranscriptToolCall[] =
+									existingCalls.map((c, i) =>
+										i === toolCallIndex
+											? {
+													...c,
+													...(response.isError && { isError: true }),
+													resultContent:
+														response.displayContent ??
+														(response.isError
+															? response.content
+															: undefined),
+												}
+											: c,
+									);
+								pendingToolEntry = {
+									...entry,
+									toolCalls: updatedToolCalls,
+								};
+								setLiveToolCalls(updatedToolCalls);
+							}
+						}
+					} else if (response.role === "assistant") {
+						if ("toolCalls" in response && response.toolCalls.length > 0) {
+							// AssistantToolCallMessage — commit any previous pending entry first.
+							if (pendingToolEntry) appendEntry(pendingToolEntry);
+							const toolCalls = response.toolCalls.map(
+								(call: ToolCall) =>
+									({
+										id: call.id,
+										name: call.name,
+										arguments: call.arguments,
+									}) as TranscriptToolCall,
+							);
+							pendingToolEntry = {
+								kind: "tool",
+								content: response.content,
+								toolCalls,
+							};
+							setLiveToolCalls(toolCalls);
+						} else {
+							// Plain assistant TextMessage — commit any pending tool entry first.
+							if (pendingToolEntry) {
+								appendEntry(pendingToolEntry);
+								pendingToolEntry = null;
+								setLiveToolCalls(null);
+							}
+							if (response.content) {
+								appendEntry({ kind: "assistant", content: response.content });
+							}
+						}
+					}
+					// "system" and "user" messages from the generator are intentionally ignored:
+					// system messages are internal, and the user message was already appended above.
+
+					refreshStatus();
+				}
 			} catch (error) {
-				appendEntry({ kind: "error", content: getErrorMessage(error) });
+				if (pendingToolEntry) {
+					appendEntry(pendingToolEntry);
+					pendingToolEntry = null;
+				}
+				appendEntry({ kind: "error", content: messageOf(error) });
 			} finally {
+				if (pendingToolEntry) appendEntry(pendingToolEntry);
+				setLiveToolCalls(null);
 				setIsProcessing(false);
 			}
 		},
-		[
-			appAgent,
-			appendEntry,
-			refreshAgentState,
-			startupError,
-			status.initialized,
-			handleCommand,
-		],
+		[appendEntry, client, refreshStatus, runCommand, status.initialized],
 	);
 
+	const composerDisabled = isInitializing || isProcessing;
+
 	return (
-		<Box flexDirection="column" padding={1}>
-			<Header />
-			<Box flexDirection="column" width="100%" flexGrow={1} flexShrink={1}>
-				<ScrollView ref={scrollRef} height={scrollHeight}>
-					<Transcript entries={entries} />
-					{isProcessing && <Processing />}
-				</ScrollView>
+		<Box flexDirection="column">
+			{/* Header is static — printed once at the top of scrollback. */}
+			<Static items={[{ id: "header" }]}>
+				{(_) => <Header key="header" />}
+			</Static>
+			{/* Transcript history flows into the host terminal's native scrollback. */}
+			<Transcript entries={entries} />
+			{/* Live region: status, spinner, composer, footer. */}
+			<Box flexDirection="column" marginTop={1}>
+				{liveToolCalls && liveToolCalls.length > 0 && (
+					<LiveToolCalls toolCalls={liveToolCalls} />
+				)}
+				{isProcessing && <Spinner startedAt={processingStartedAt} />}
+				<StatusLine status={status} isProcessing={isProcessing} />
+				<Composer disabled={composerDisabled} onSubmit={handleSubmit} />
+				<Footer />
 			</Box>
-			<Prompt
-				input={input}
-				disabled={isInitializing || isProcessing}
-				onChange={setInput}
-				onSubmit={handleSubmit}
-			/>
-			<Footer />
-		</Box>
-	);
-}
-
-function Header() {
-	return (
-		<Box borderStyle="round" borderColor="cyan" padding={1} marginBottom={1}>
-			<Text bold color="cyan">
-				DevOps Agent
-			</Text>
-		</Box>
-	);
-}
-
-function Footer() {
-	return (
-		<Box marginTop={1}>
-			<Text dimColor>Press Ctrl+C to exit</Text>
-		</Box>
-	);
-}
-
-function Processing() {
-	return (
-		<Box marginBottom={1}>
-			<Text color="green" bold>
-				🤖 Assistant:{" "}
-			</Text>
-			<Text>
-				<Spinner type="dots" />
-				<Text> Thinking...</Text>
-			</Text>
-		</Box>
-	);
-}
-
-function Transcript({ entries }: { entries: TranscriptEntry[] }) {
-	if (entries.length === 0) {
-		return (
-			<Box flexGrow={1} justifyContent="center">
-				<Text dimColor>Ask a DevOps question or type /help.</Text>
-			</Box>
-		);
-	}
-
-	return (
-		<Box flexDirection="column" marginBottom={1}>
-			{entries.map((entry) => (
-				<TranscriptRow entry={entry} key={entry.id} />
-			))}
-		</Box>
-	);
-}
-
-function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
-	return (
-		<Box key={entry.id} flexDirection="column" marginBottom={1}>
-			<Box paddingX={1} paddingY={0} backgroundColor={entryColor(entry.kind)}>
-				{entryComponent(entry.kind)}
-			</Box>
-			<Box marginLeft={2} marginTop={1}>
-				<Markdown>{entry.content}</Markdown>
-			</Box>
-		</Box>
-	);
-}
-
-function entryComponent(kind: EntryKind) {
-	if (kind === "user") {
-		return (
-			<>
-				<Text>🧑&nbsp;</Text>
-				<Text>You</Text>
-			</>
-		);
-	}
-
-	if (kind === "assistant") {
-		return (
-			<>
-				<Text>🤖&nbsp;</Text>
-				<Text>Assistant</Text>
-			</>
-		);
-	}
-
-	if (kind === "command") {
-		return (
-			<>
-				<Text>⚙️&nbsp;</Text>
-				<Text>Command</Text>
-			</>
-		);
-	}
-
-	if (kind === "error") {
-		return (
-			<>
-				<Text>❌&nbsp;</Text>
-				<Text>Error</Text>
-			</>
-		);
-	}
-
-	return (
-		<>
-			<Text>ℹ️&nbsp;</Text>
-			<Text>System</Text>
-		</>
-	);
-}
-
-function entryColor(kind: EntryKind): string {
-	if (kind === "user") {
-		return "green";
-	}
-
-	if (kind === "assistant") {
-		return "cyan";
-	}
-
-	if (kind === "command") {
-		return "yellow";
-	}
-
-	if (kind === "error") {
-		return "red";
-	}
-
-	return "gray";
-}
-
-function Prompt({
-	input,
-	disabled,
-	onChange,
-	onSubmit,
-}: {
-	input: string;
-	disabled: boolean;
-	onChange: (value: string) => void;
-	onSubmit: (value: string) => void;
-}) {
-	return (
-		<Box
-			borderStyle="single"
-			borderColor="gray"
-			marginLeft={2}
-			marginRight={2}
-			borderLeft={false}
-			borderRight={false}
-			paddingX={1}
-			paddingY={0}
-		>
-			<Text>❯ </Text>
-			<TextInput
-				value={input}
-				focus={!disabled}
-				onChange={onChange}
-				onSubmit={(value) => {
-					if (!disabled) {
-						onSubmit(value);
-					}
-				}}
-				placeholder="Ask something..."
-			/>
 		</Box>
 	);
 }
@@ -547,10 +380,6 @@ function formatTools(tools: Tool[]): string {
 	return tools.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n");
 }
 
-function getErrorMessage(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-
-	return String(error);
+function messageOf(err: unknown): string {
+	return err instanceof Error ? err.message : String(err);
 }
