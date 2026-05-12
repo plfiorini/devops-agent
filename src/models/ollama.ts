@@ -27,14 +27,19 @@ const DEFAULT_MAX_TOKENS = 4096;
 function getOllamaTools(appTools: Tool[]): ChatCompletionTool[] {
 	return appTools.map((tool) => {
 		const jsonSchema = zodToJsonSchema(tool.inputSchema);
-		const parameters = jsonSchema as Record<string, unknown>;
+		// biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility.
+		const { properties = {}, required = [] } = jsonSchema as any;
 
 		return {
 			type: "function",
 			function: {
 				name: tool.name,
 				description: tool.description,
-				parameters,
+				parameters: {
+					type: "object",
+					properties,
+					required,
+				},
 			},
 		};
 	});
@@ -174,7 +179,12 @@ export class OllamaProvider implements Provider {
 					});
 
 					for (const call of responseMessage.tool_calls) {
-						const toolResult = await executeToolFromJsonArgs(call.id, call.function.name, call.function.arguments, toolSchemas);
+						const toolResult = await executeToolFromJsonArgs(
+							call.id,
+							call.function.name,
+							call.function.arguments,
+							toolSchemas,
+						);
 						generatedMessages.push(toolResult);
 						messages.push(toOllamaToolMessage(toolResult));
 					}

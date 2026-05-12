@@ -23,12 +23,17 @@ const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 4096;
 
 function convertTool(tool: Tool): AnthropicTool {
+	const jsonSchema = zodToJsonSchema(tool.inputSchema);
+	// biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility.
+	const { properties = {}, required = [] } = jsonSchema as any;
 	return {
 		name: tool.name,
 		description: tool.description,
-		input_schema: zodToJsonSchema(
-			tool.inputSchema,
-		) as AnthropicTool.InputSchema,
+		input_schema: {
+			type: "object",
+			properties: properties as AnthropicTool.InputSchema["properties"],
+			required: required as string[],
+		},
 	};
 }
 
@@ -159,7 +164,12 @@ export class AnthropicProvider implements Provider {
 
 					const toolResults: ToolResultBlockParam[] = [];
 					for (const toolUse of toolUseBlocks) {
-						const toolResult = await executeTool(toolUse.id, toolUse.name, toolUse.input, toolSchemas);
+						const toolResult = await executeTool(
+							toolUse.id,
+							toolUse.name,
+							toolUse.input,
+							toolSchemas,
+						);
 						generatedMessages.push(toolResult);
 						toolResults.push(toAnthropicToolResult(toolResult));
 					}
