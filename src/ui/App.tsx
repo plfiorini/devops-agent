@@ -1,18 +1,15 @@
-import { Box, Text, useApp, useInput, useWindowSize } from "ink";
+import { Box, Text, useApp, useInput, useStdout } from "ink";
+import Markdown from "ink-markdown-es";
+import { ScrollView, type ScrollViewRef } from "ink-scroll-view";
+import Spinner from "ink-spinner";
+import TextInput from "ink-text-input";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Agent, type AgentStatus, type ProviderInfo } from "../agent.ts";
-import {
-	type LogLevel,
-	formatLogArgs,
-	resetLoggerSink,
-	setLoggerSink,
-} from "../logger.ts";
+import { formatLogArgs, resetLoggerSink, setLoggerSink } from "../logger.ts";
 import type { Tool } from "../types.ts";
-import { renderMarkdown } from "../utils/markdownRenderer.ts";
-import { type UiCommandName, helpText, parseInput } from "./commands.ts";
+import { helpText, parseInput, type UiCommandName } from "./commands.ts";
 
 type EntryKind = "user" | "assistant" | "system" | "error" | "command";
-type Panel = "status" | "tools" | "help";
 
 type TranscriptEntry = {
 	id: string;
@@ -31,41 +28,86 @@ export type AgentClient = {
 	switchModel: (model: string) => Promise<void>;
 };
 
-export type DevOpsAgentAppProps = {
+export type AppProps = {
 	agent?: AgentClient;
 };
 
-const panels: Panel[] = ["status", "tools", "help"];
-
-export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
+export function App({ agent }: AppProps) {
 	const { exit } = useApp();
-	const { columns, rows } = useWindowSize();
 	const appAgent = useMemo<AgentClient>(() => agent ?? new Agent(), [agent]);
+	const scrollRef = useRef<ScrollViewRef>(null);
+	const { stdout } = useStdout();
 	const entryIndex = useRef(0);
 	const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-	const [composerValue, setComposerValue] = useState("");
+	const [input, setInput] = useState("");
+	const [isInitializing, setIsInitializing] = useState(true);
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [startupError, setStartupError] = useState<string | undefined>();
 	const [status, setStatus] = useState<AgentStatus>({
 		initialized: false,
 		providers: [],
 		toolCount: 0,
 		conversationCount: 0,
 	});
-	const [tools, setTools] = useState<Tool[]>([]);
-	const [activePanel, setActivePanel] = useState<Panel>("status");
-	const [isInitializing, setIsInitializing] = useState(true);
-	const [isProcessing, setIsProcessing] = useState(false);
-	const [startupError, setStartupError] = useState<string | undefined>();
+	const [, setTools] = useState<Tool[]>([]);
 
+	// Handle terminal resizing due to manual window change
+	useEffect(() => {
+		const handleResize = () => scrollRef.current?.remeasure();
+		stdout?.on("resize", handleResize);
+		return () => {
+			stdout?.off("resize", handleResize);
+		};
+	}, [stdout]);
+
+	// Scroll to bottom after new content is rendered
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Always scroll with new contents
+	useEffect(() => {
+		scrollRef.current?.scrollToBottom();
+	}, [entries, isProcessing]);
+
+	// Handle keyboard input
+	useInput(
+		(input, key) => {
+			const lowerInput = input.toLowerCase();
+
+			if (key.ctrl && lowerInput === "c") {
+				exit();
+			}
+
+			if (key.upArrow) {
+				scrollRef.current?.scrollBy(-1);
+			}
+			if (key.downArrow) {
+				scrollRef.current?.scrollBy(1);
+			}
+			if (key.pageUp) {
+				const height = scrollRef.current?.getViewportHeight() || 1;
+				scrollRef.current?.scrollBy(-height);
+			}
+			if (key.pageDown) {
+				const height = scrollRef.current?.getViewportHeight() || 1;
+				scrollRef.current?.scrollBy(height);
+			}
+		},
+		{
+			isActive: true,
+		},
+	);
+
+	// Append entry to transcript
 	const appendEntry = useCallback((entry: Omit<TranscriptEntry, "id">) => {
 		const id = String(entryIndex.current++);
 		setEntries((currentEntries) => [...currentEntries, { ...entry, id }]);
 	}, []);
 
+	// Refresh agent status and tools
 	const refreshAgentState = useCallback(() => {
 		setStatus(appAgent.getStatus());
 		setTools(appAgent.getAvailableTools());
 	}, [appAgent]);
 
+	// Show logs as entries
 	useEffect(() => {
 		setLoggerSink((level: LogLevel, args: unknown[]) => {
 			if (level !== "warn") {
@@ -83,6 +125,7 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 		};
 	}, [appendEntry]);
 
+	// Initialize agent on mount
 	useEffect(() => {
 		let isMounted = true;
 
@@ -133,13 +176,7 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 		};
 	}, [appAgent, appendEntry]);
 
-	const cyclePanel = useCallback(() => {
-		setActivePanel((currentPanel) => {
-			const currentIndex = panels.indexOf(currentPanel);
-			return panels[(currentIndex + 1) % panels.length] ?? "status";
-		});
-	}, []);
-
+	// Handle commands
 	const handleCommand = useCallback(
 		async (commandName: UiCommandName, args?: string) => {
 			appendEntry({
@@ -153,13 +190,11 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 			}
 
 			if (commandName === "help") {
-				setActivePanel("help");
 				appendEntry({ kind: "system", content: helpText });
 				return;
 			}
 
 			if (commandName === "tools") {
-				setActivePanel("tools");
 				appendEntry({
 					kind: "system",
 					content: formatTools(appAgent.getAvailableTools()),
@@ -168,7 +203,6 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 			}
 
 			if (commandName === "status") {
-				setActivePanel("status");
 				appendEntry({
 					kind: "system",
 					content: formatStatus(appAgent.getStatus()),
@@ -244,14 +278,14 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 	);
 
 	const handleSubmit = useCallback(
-		async (input: string) => {
-			const parsedInput = parseInput(input);
+		async (value: string) => {
+			const parsedInput = parseInput(value);
 
 			if (parsedInput.type === "empty") {
 				return;
 			}
 
-			setComposerValue("");
+			setInput("");
 
 			if (parsedInput.type === "invalid") {
 				appendEntry({ kind: "error", content: parsedInput.message });
@@ -276,8 +310,7 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 
 			try {
 				const response = await appAgent.processMessage(parsedInput.prompt);
-				const renderedResponse = await renderMarkdown(response);
-				appendEntry({ kind: "assistant", content: renderedResponse.trimEnd() });
+				appendEntry({ kind: "assistant", content: response.trimEnd() });
 				refreshAgentState();
 			} catch (error) {
 				appendEntry({ kind: "error", content: getErrorMessage(error) });
@@ -288,96 +321,61 @@ export function DevOpsAgentApp({ agent }: DevOpsAgentAppProps) {
 		[
 			appAgent,
 			appendEntry,
-			handleCommand,
 			refreshAgentState,
 			startupError,
 			status.initialized,
+			handleCommand,
 		],
 	);
 
-	const isWide = columns >= 100;
-	const panelHeight = isWide ? undefined : Math.max(7, Math.min(10, rows - 12));
-	const maxEntries = Math.max(4, rows - (isWide ? 9 : 17));
-
 	return (
-		<Box flexDirection="column" height={rows > 0 ? rows : 24}>
-			<Header
-				status={status}
-				isInitializing={isInitializing}
-				isProcessing={isProcessing}
-			/>
-			<Box flexDirection={isWide ? "row" : "column"} flexGrow={1} gap={1}>
-				<Box
-					borderColor="cyan"
-					borderStyle="round"
-					flexDirection="column"
-					flexGrow={1}
-					minHeight={8}
-					overflow="hidden"
-					paddingX={1}
-				>
-					<Transcript entries={entries.slice(-maxEntries)} />
-				</Box>
-				<Box
-					borderColor="gray"
-					borderStyle="round"
-					flexDirection="column"
-					height={panelHeight}
-					overflow="hidden"
-					paddingX={1}
-					width={isWide ? 36 : undefined}
-				>
-					<SidePanel
-						activePanel={activePanel}
-						status={status}
-						tools={tools}
-						startupError={startupError}
-					/>
-				</Box>
+		<Box flexDirection="column" padding={1}>
+			<Header />
+			<Box flexDirection="column" width="100%" flexGrow={1} flexShrink={1}>
+				<ScrollView ref={scrollRef}>
+					<Transcript entries={entries} />
+					{isProcessing && <Processing />}
+				</ScrollView>
 			</Box>
-			<Composer
+			<Prompt
+				input={input}
 				disabled={isInitializing || isProcessing}
-				value={composerValue}
-				onChange={setComposerValue}
-				onCyclePanel={cyclePanel}
+				onChange={setInput}
 				onSubmit={handleSubmit}
 			/>
-			<Footer activePanel={activePanel} />
+			<Footer />
 		</Box>
 	);
 }
 
-function Header({
-	status,
-	isInitializing,
-	isProcessing,
-}: {
-	status: AgentStatus;
-	isInitializing: boolean;
-	isProcessing: boolean;
-}) {
-	const enabledProviders = status.providers.filter(
-		(provider) => provider.enabled,
-	);
-	const state = isInitializing
-		? "initializing"
-		: isProcessing
-			? "working"
-			: "ready";
-
+function Header() {
 	return (
-		<Box justifyContent="space-between" paddingX={1}>
+		<Box borderStyle="round" borderColor="cyan" padding={1} marginBottom={1}>
 			<Text bold color="cyan">
 				DevOps Agent
 			</Text>
-			<Box gap={2}>
-				<Text color="green">{status.activeProviderName ?? "No provider"}</Text>
-				<Text
-					dimColor
-				>{`${enabledProviders.length}/${status.providers.length} providers`}</Text>
-				<Text dimColor>{`${status.toolCount} tools`}</Text>
-				<Text color={isProcessing ? "yellow" : "green"}>{state}</Text>
-			</Box>
+		</Box>
+	);
+}
+
+function Footer() {
+	return (
+		<Box marginTop={1}>
+			<Text dimColor>Press Ctrl+C to exit</Text>
+		</Box>
+	);
+}
+
+function Processing() {
+	return (
+		<Box marginBottom={1}>
+			<Text color="green" bold>
+				🤖 Assistant:{" "}
+			</Text>
+			<Text>
+				<Spinner type="dots" />
+				<Text> Thinking...</Text>
+			</Text>
 		</Box>
 	);
 }
@@ -392,7 +390,7 @@ function Transcript({ entries }: { entries: TranscriptEntry[] }) {
 	}
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" marginBottom={1}>
 			{entries.map((entry) => (
 				<TranscriptRow entry={entry} key={entry.id} />
 			))}
@@ -402,223 +400,60 @@ function Transcript({ entries }: { entries: TranscriptEntry[] }) {
 
 function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
 	return (
-		<Box flexDirection="column" marginBottom={1}>
-			<Text bold={entry.kind === "error"} color={entryColor(entry.kind)}>
-				{entryLabel(entry.kind)}
-			</Text>
-			<Text wrap="wrap">{entry.content}</Text>
+		<Box key={entry.id} flexDirection="column" marginBottom={1}>
+			<Box paddingX={1} paddingY={0} backgroundColor={entryColor(entry.kind)}>
+				{entryComponent(entry.kind)}
+			</Box>
+			<Box marginLeft={2} marginTop={1}>
+				<Markdown>{entry.content}</Markdown>
+			</Box>
 		</Box>
 	);
 }
 
-function SidePanel({
-	activePanel,
-	status,
-	tools,
-	startupError,
-}: {
-	activePanel: Panel;
-	status: AgentStatus;
-	tools: Tool[];
-	startupError?: string;
-}) {
-	if (activePanel === "help") {
+function entryComponent(kind: EntryKind) {
+	if (kind === "user") {
 		return (
 			<>
-				<PanelTitle title="Help" />
-				<Text wrap="wrap">{helpText}</Text>
+				<Text>🧑&nbsp;</Text>
+				<Text>You</Text>
 			</>
 		);
 	}
 
-	if (activePanel === "tools") {
+	if (kind === "assistant") {
 		return (
 			<>
-				<PanelTitle title="Tools" />
-				{tools.length === 0 ? (
-					<Text dimColor>No tools loaded.</Text>
-				) : (
-					tools.map((tool) => (
-						<Box flexDirection="column" key={tool.name} marginBottom={1}>
-							<Text color="green">{tool.name}</Text>
-							<Text dimColor wrap="wrap">
-								{tool.description}
-							</Text>
-						</Box>
-					))
-				)}
+				<Text>🤖&nbsp;</Text>
+				<Text>Assistant</Text>
+			</>
+		);
+	}
+
+	if (kind === "command") {
+		return (
+			<>
+				<Text>⚙️&nbsp;</Text>
+				<Text>Command</Text>
+			</>
+		);
+	}
+
+	if (kind === "error") {
+		return (
+			<>
+				<Text>❌&nbsp;</Text>
+				<Text>Error</Text>
 			</>
 		);
 	}
 
 	return (
 		<>
-			<PanelTitle title="Status" />
-			{startupError && <Text color="red">{startupError}</Text>}
-			<Text>
-				{"Active: "}
-				<Text color="green">
-					{status.activeProviderName ?? "not initialized"}
-				</Text>
-			</Text>
-			<Text>
-				{"Model: "}
-				<Text color="green">{status.activeModelName ?? "not initialized"}</Text>
-			</Text>
-			<Text dimColor>{`Messages: ${status.conversationCount}`}</Text>
-			<Text dimColor>{`Tools: ${status.toolCount}`}</Text>
-			<Box flexDirection="column" marginTop={1}>
-				{status.providers.map((provider) => (
-					<ProviderLine key={provider.name} provider={provider} />
-				))}
-			</Box>
+			<Text>ℹ️&nbsp;</Text>
+			<Text>System</Text>
 		</>
 	);
-}
-
-function PanelTitle({ title }: { title: string }) {
-	return (
-		<Box marginBottom={1}>
-			<Text bold color="cyan">
-				{title}
-			</Text>
-		</Box>
-	);
-}
-
-function ProviderLine({ provider }: { provider: ProviderInfo }) {
-	return (
-		<Box flexDirection="row" gap={1}>
-			<Text wrap="truncate-end">{provider.name}</Text>
-			<Text color={provider.enabled ? "green" : "red"}>
-				{provider.enabled ? "ON" : "OFF"}
-			</Text>
-			{provider.isDefault && <Text color="blue">(default)</Text>}
-		</Box>
-	);
-}
-
-function Composer({
-	value,
-	disabled,
-	onChange,
-	onCyclePanel,
-	onSubmit,
-}: {
-	value: string;
-	disabled: boolean;
-	onChange: (value: string) => void;
-	onCyclePanel: () => void;
-	onSubmit: (value: string) => Promise<void>;
-}) {
-	const bufferRef = useRef(value);
-	bufferRef.current = value;
-
-	const setBuffer = useCallback(
-		(next: string) => {
-			bufferRef.current = next;
-			onChange(next);
-		},
-		[onChange],
-	);
-
-	useInput(
-		(input, key) => {
-			const lowerInput = input.toLowerCase();
-
-			if (key.ctrl && lowerInput === "p") {
-				onCyclePanel();
-				return;
-			}
-
-			if (disabled) {
-				return;
-			}
-
-			if (key.escape) {
-				setBuffer("");
-				return;
-			}
-
-			if (
-				(key.ctrl && (lowerInput === "j" || key.return)) ||
-				(key.shift && key.return)
-			) {
-				setBuffer(`${bufferRef.current}\n`);
-				return;
-			}
-
-			if (key.return) {
-				const toSubmit = bufferRef.current;
-				setBuffer("");
-				void onSubmit(toSubmit);
-				return;
-			}
-
-			if (key.backspace || key.delete) {
-				setBuffer(bufferRef.current.slice(0, -1));
-				return;
-			}
-
-			if (key.ctrl || key.meta || input.length === 0) {
-				return;
-			}
-
-			setBuffer(`${bufferRef.current}${input}`);
-		},
-		{ isActive: true },
-	);
-
-	const lines = value.length > 0 ? value.split("\n") : [""];
-
-	return (
-		<Box
-			borderColor={disabled ? "gray" : "green"}
-			borderStyle="round"
-			flexDirection="column"
-			minHeight={3}
-			paddingX={1}
-		>
-			{lines.map((line, index) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: lines are positional with no stable identity
-				<Box key={`line-${index}`}>
-					<Text color="green">{index === 0 ? "> " : "  "}</Text>
-					<Text dimColor={value.length === 0}>
-						{line || (index === 0 ? "Type a message or /help" : " ")}
-					</Text>
-				</Box>
-			))}
-		</Box>
-	);
-}
-
-function Footer({ activePanel }: { activePanel: Panel }) {
-	return (
-		<Box justifyContent="space-between" paddingX={1}>
-			<Text dimColor>Enter send | Ctrl+J newline | Esc clear | /exit quit</Text>
-			<Text dimColor>{`Panel: ${activePanel} | Ctrl+P cycle`}</Text>
-		</Box>
-	);
-}
-
-function entryLabel(kind: EntryKind): string {
-	if (kind === "user") {
-		return "You";
-	}
-
-	if (kind === "assistant") {
-		return "Agent";
-	}
-
-	if (kind === "command") {
-		return "Command";
-	}
-
-	if (kind === "error") {
-		return "Error";
-	}
-
-	return "System";
 }
 
 function entryColor(kind: EntryKind): string {
@@ -639,6 +474,44 @@ function entryColor(kind: EntryKind): string {
 	}
 
 	return "gray";
+}
+
+function Prompt({
+	input,
+	disabled,
+	onChange,
+	onSubmit,
+}: {
+	input: string;
+	disabled: boolean;
+	onChange: (value: string) => void;
+	onSubmit: (value: string) => void;
+}) {
+	return (
+		<Box
+			borderStyle="single"
+			borderColor="gray"
+			marginLeft={2}
+			marginRight={2}
+			borderLeft={false}
+			borderRight={false}
+			paddingX={1}
+			paddingY={0}
+		>
+			<Text>❯ </Text>
+			<TextInput
+				value={input}
+				focus={!disabled}
+				onChange={onChange}
+				onSubmit={(value) => {
+					if (!disabled) {
+						onSubmit(value);
+					}
+				}}
+				placeholder="Ask something..."
+			/>
+		</Box>
+	);
 }
 
 function formatStatus(status: AgentStatus): string {
