@@ -8,6 +8,13 @@
 			"!!**/.agents"
 		]
 	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"formatter": {
 		"indentStyle": "tab"
 	}
