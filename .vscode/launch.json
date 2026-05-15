@@ -8,14 +8,12 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Agent",
-			"skipFiles": ["<node_internals>/**"],
-			"runtimeVersion": "24",
-			"runtimeArgs": [
-				"--disable-warning=ExperimentalWarning",
-				"--experimental-transform-type"
-			],
-			"program": "${workspaceFolder}/src/index.ts",
-			"outFiles": ["${workspaceFolder}/**/*.js"]
+			"console": "externalTerminal",
+			"runtimeExecutable": "bun",
+			"program": "${workspaceFolder}/src/index.tsx",
+			"skipFiles": [
+				"<node_internals>/**"
+			]
 		}
 	]
 }
