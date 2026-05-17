@@ -25,7 +25,7 @@
 		"format": "biome format",
 		"format:write": "biome format --write",
 		"lint": "biome lint",
-		"test": "vitest run",
+		"test": "bun test --coverage --isolate",
 		"start": "bun src/index.tsx",
 		"dev": "bun --watch src/index.tsx"
 	},
@@ -34,8 +34,7 @@
 		"@types/node": "^25.6.2",
 		"@types/react": "^19.2.14",
 		"ink-testing-library": "^4.0.0",
-		"typescript": "^6.0.3",
-		"vitest": "^4.1.5"
+		"typescript": "^6.0.3"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.95.1",
