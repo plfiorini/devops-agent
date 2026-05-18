@@ -188,6 +188,31 @@ describe("Agent", () => {
 			await agent.switchModel("llama3");
 			expect(mockProvider.setModelName).toHaveBeenCalledWith("llama3");
 		});
+
+		it("skips model-list validation and propagates setModelName error when getSupportedModels returns []", async () => {
+			// Simulates Azure: getSupportedModels() returns [] so the generic
+			// "Model X is not supported" error is never shown; setModelName() throws
+			// its own descriptive error instead.
+			await agent.initialize();
+			(
+				mockProvider.getSupportedModels as ReturnType<typeof mock>
+			).mockImplementation(async () => []);
+			(mockProvider.setModelName as ReturnType<typeof mock>).mockImplementation(
+				() => {
+					throw new Error("use /provider to switch deployments");
+				},
+			);
+			await expect(agent.switchModel("any-model")).rejects.toThrow(
+				"use /provider to switch deployments",
+			);
+			// Restore original mock behaviour for subsequent tests
+			(
+				mockProvider.getSupportedModels as ReturnType<typeof mock>
+			).mockImplementation(async () => ["llama3", "mistral"]);
+			(mockProvider.setModelName as ReturnType<typeof mock>).mockImplementation(
+				(_: string) => {},
+			);
+		});
 	});
 
 	describe("clearMessages", () => {

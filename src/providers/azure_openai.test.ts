@@ -87,4 +87,10 @@ describe("AzureOpenAIProvider methods", () => {
 			"Azure OpenAI routes requests by deployment name",
 		);
 	});
+
+	it("getSupportedModels returns empty array to bypass switchModel validation", async () => {
+		const provider = new AzureOpenAIProvider(validConfig, []);
+		const models = await provider.getSupportedModels();
+		expect(models).toEqual([]);
+	});
 });
