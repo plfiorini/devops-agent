@@ -210,7 +210,7 @@ describe("Agent", () => {
 				mockProvider.getSupportedModels as ReturnType<typeof mock>
 			).mockImplementation(async () => ["llama3", "mistral"]);
 			(mockProvider.setModelName as ReturnType<typeof mock>).mockImplementation(
-				(_: string) => {},
+				() => {},
 			);
 		});
 	});
