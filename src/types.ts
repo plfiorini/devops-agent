@@ -1,10 +1,10 @@
-/*
- * Providers
- */
-
 import type z from "zod/v4";
 
-export const MAX_TOOL_ITERATIONS = 8;
+export type ProviderInfo = {
+	name: string;
+	enabled: boolean;
+	isDefault: boolean;
+};
 
 export type ToolCall = {
 	id: string;
@@ -15,10 +15,12 @@ export type ToolCall = {
 export type TextMessage = {
 	role: "user" | "assistant" | "system";
 	content: string;
+	options?: Record<string, unknown>;
 };
 
 export type AssistantToolCallMessage = {
 	role: "assistant";
+	thinking?: string;
 	content: string;
 	toolCalls: ToolCall[];
 };
@@ -28,6 +30,7 @@ export type ToolResultMessage = {
 	toolCallId: string;
 	toolName: string;
 	content: string;
+	displayContent?: string;
 	isError?: boolean;
 };
 
@@ -36,18 +39,14 @@ export type Message =
 	| AssistantToolCallMessage
 	| ToolResultMessage;
 
-export type Request = {
-	systemPrompt: string;
-	messages: Message[];
-};
-
-export type Response = {
-	content: string;
-	messages: Message[];
-};
-
-export interface Provider {
-	chatBot(request: Request): Promise<Response>;
+export interface ProviderInterface {
+	getProviderName(): string;
+	getModelName(): string;
+	setModelName(model: string): void;
+	getSupportedModels(): Promise<string[]>;
+	getMessagesCount(): number;
+	clearMessages(): void;
+	agentLoop(prompt: string): AsyncGenerator<Message>;
 }
 
 /*
@@ -66,6 +65,8 @@ export interface GenericTool<
 	inputSchema: Input;
 	outputSchema: Output;
 	execute: (args: z.infer<Input>) => Promise<z.infer<Output>> | z.infer<Output>;
+	isError?: (result: z.infer<Output>) => boolean;
+	formatResult?: (result: z.infer<Output>) => string;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: We use `any` here to allow flexibility in the tool's schema type.

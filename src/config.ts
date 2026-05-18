@@ -1,144 +1,107 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
-import YAML from "yaml";
+import z from "zod";
+import { loadConfig as zodLoadConfig } from "zod-config";
+import { yamlAdapter } from "zod-config/yaml-adapter";
 
-export type Provider =
-	| "gemini"
-	| "openai"
-	| "azure_openai"
-	| "anthropic"
-	| "ollama";
+const providerSchema = z.enum([
+	"gemini",
+	"openai",
+	"azure_openai",
+	"anthropic",
+	"ollama",
+]);
+export type Provider = z.infer<typeof providerSchema>;
 
-export type GeminiConfig = {
-	enabled: boolean;
-	api_key: string;
-	model: string;
-	temperature?: number;
-	max_tokens?: number;
-};
+const geminiSchema = z.object({
+	enabled: z.boolean(),
+	api_key: z.string(),
+	model: z.string(),
+	temperature: z.number().min(0).max(2).optional(),
+	max_tokens: z.number().optional(),
+});
+export type GeminiConfig = z.infer<typeof geminiSchema>;
 
-export type OpenAIConfig = {
-	enabled: boolean;
-	api_key: string;
-	model: string;
-	organization?: string;
-	base_url?: string;
-	temperature?: number;
-	max_tokens?: number;
-};
+const openaiSchema = z.object({
+	enabled: z.boolean(),
+	api_key: z.string(),
+	model: z.string(),
+	organization: z.string().optional(),
+	base_url: z.string().optional(),
+	temperature: z.number().min(0).max(2).optional(),
+	max_tokens: z.number().optional(),
+});
+export type OpenAIConfig = z.infer<typeof openaiSchema>;
 
-export type AzureOpenAIConfig = {
-	enabled: boolean;
-	api_key: string;
-	endpoint: string;
-	deployment_name: string;
-	api_version?: string;
-	temperature?: number;
-	max_tokens?: number;
-};
+const azureOpenAISchema = z.object({
+	enabled: z.boolean(),
+	api_key: z.string().optional(),
+	endpoint: z.string(),
+	deployment_name: z.string(),
+	api_version: z.string().optional(),
+	temperature: z.number().min(0).max(2).optional(),
+	max_tokens: z.number().optional(),
+});
+export type AzureOpenAIConfig = z.infer<typeof azureOpenAISchema>;
 
-export type AnthropicConfig = {
-	enabled: boolean;
-	api_key: string;
-	model: string;
-	base_url?: string;
-	temperature?: number;
-	max_tokens?: number;
-};
+const anthropicSchema = z.object({
+	enabled: z.boolean(),
+	api_key: z.string(),
+	model: z.string(),
+	base_url: z.string().optional(),
+	temperature: z.number().min(0).max(1).optional(),
+	max_tokens: z.number().optional(),
+});
+export type AnthropicConfig = z.infer<typeof anthropicSchema>;
 
-export type OllamaConfig = {
-	enabled: boolean;
-	base_url?: string;
-	model: string;
-	temperature?: number;
-	max_tokens?: number;
-};
+const ollamaSchema = z.object({
+	enabled: z.boolean(),
+	base_url: z.string().optional(),
+	model: z.string(),
+	temperature: z.number().min(0).max(2).optional(),
+	num_predict: z.number().int().optional(),
+});
+export type OllamaConfig = z.infer<typeof ollamaSchema>;
 
-export type OpenAIConfigType = OpenAIConfig | AzureOpenAIConfig;
+const providersConfigSchema = z.object({
+	gemini: geminiSchema.optional(),
+	openai: openaiSchema.optional(),
+	azure_openai: azureOpenAISchema.optional(),
+	anthropic: anthropicSchema.optional(),
+	ollama: ollamaSchema.optional(),
+});
+export type ProvidersConfig = z.infer<typeof providersConfigSchema>;
 
-export type ProvidersConfig = {
-	gemini?: GeminiConfig;
-	openai?: OpenAIConfig;
-	azure_openai?: AzureOpenAIConfig;
-	anthropic?: AnthropicConfig;
-	ollama?: OllamaConfig;
-};
+const configSchema = z.object({
+	default_provider: providerSchema.default("ollama"),
+	providers: providersConfigSchema,
+});
+export type Config = z.infer<typeof configSchema>;
 
-export type Config = {
-	default_provider?: Provider;
-	providers: ProvidersConfig;
-};
-
-function loadConfig(configPath?: string): Config {
+export async function loadConfig(configPath?: string): Promise<Config> {
 	const defaultConfigPath = path.join(process.cwd(), "config.yaml");
 	const filePath = configPath || defaultConfigPath;
 
 	try {
-		const fileContents = fs.readFileSync(filePath, "utf8");
-		const config = YAML.parse(fileContents);
+		const config = await zodLoadConfig({
+			schema: configSchema,
+			adapters: yamlAdapter({ path: filePath }),
+		});
 
 		if (!config.providers) {
 			throw new Error("Provider configuration is missing");
 		}
 
-		// Validate that at least one provider is configured and enabled
-		const hasEnabledProvider =
-			config.providers.gemini?.enabled ||
-			config.providers.azure_openai?.enabled ||
-			config.providers.openai?.enabled ||
-			config.providers.anthropic?.enabled ||
-			config.providers.ollama?.enabled;
-		if (!hasEnabledProvider) {
-			throw new Error("At least one provider must be configured and enabled");
-		}
-
-		// Set default provider if not specified
-		if (!config.default_provider) {
-			if (config.providers.ollama?.enabled) {
-				config.default_provider = "ollama";
-			} else if (config.providers.gemini?.enabled) {
-				config.default_provider = "gemini";
-			} else if (config.providers.azure_openai?.enabled) {
-				config.default_provider = "azure_openai";
-			} else if (config.providers.openai?.enabled) {
-				config.default_provider = "openai";
-			} else if (config.providers.anthropic?.enabled) {
-				config.default_provider = "anthropic";
-			} else {
-				throw new Error("No enabled provider found to set as default");
-			}
-		}
-
 		// Validate that the default provider is actually enabled
-		if (
-			config.default_provider === "gemini" &&
-			!config.providers.gemini?.enabled
-		) {
-			throw new Error("Default provider 'gemini' is not enabled");
+		const defaultProviderConfig = config.providers[config.default_provider];
+		if (!defaultProviderConfig) {
+			throw new Error(
+				`Default provider "${config.default_provider}" is not configured under "providers" in config.yaml`,
+			);
 		}
-		if (
-			config.default_provider === "azure_openai" &&
-			!config.providers.azure_openai?.enabled
-		) {
-			throw new Error("Default provider 'azure_openai' is not enabled");
-		}
-		if (
-			config.default_provider === "openai" &&
-			!config.providers.openai?.enabled
-		) {
-			throw new Error("Default provider 'openai' is not enabled");
-		}
-		if (
-			config.default_provider === "anthropic" &&
-			!config.providers.anthropic?.enabled
-		) {
-			throw new Error("Default provider 'anthropic' is not enabled");
-		}
-		if (
-			config.default_provider === "ollama" &&
-			!config.providers.ollama?.enabled
-		) {
-			throw new Error("Default provider 'ollama' is not enabled");
+		if (!defaultProviderConfig.enabled) {
+			throw new Error(
+				`Default provider "${config.default_provider}" has "enabled: false" in config.yaml. Set it to "enabled: true" or choose a different default_provider.`,
+			);
 		}
 
 		return config as Config;
@@ -147,4 +110,17 @@ function loadConfig(configPath?: string): Config {
 	}
 }
 
-export const config: Config = loadConfig();
+/**
+ * Lazily load and cache the config. The config file is only read from disk on
+ * the first call; subsequent calls return the cached result. This avoids
+ * top-level await that would eagerly perform I/O at module-import time,
+ * making the module safe to import in tests and environments without a
+ * config.yaml.
+ */
+let _cachedConfig: Config | undefined;
+export async function getConfig(): Promise<Config> {
+	if (_cachedConfig === undefined) {
+		_cachedConfig = await loadConfig();
+	}
+	return _cachedConfig;
+}

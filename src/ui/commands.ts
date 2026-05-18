@@ -3,7 +3,9 @@ export type UiCommandName =
 	| "tools"
 	| "status"
 	| "provider"
+	| "providers"
 	| "model"
+	| "models"
 	| "clear"
 	| "exit";
 
@@ -18,7 +20,9 @@ const commandNames = new Set<UiCommandName>([
 	"tools",
 	"status",
 	"provider",
+	"providers",
 	"model",
+	"models",
 	"clear",
 	"exit",
 ]);
@@ -31,15 +35,16 @@ export const helpText = [
 	"  /provider          Show active provider",
 	"  /provider <n>      Switch provider (gemini, openai, azure_openai, anthropic, ollama)",
 	"  /provider <n>:<m>  Switch provider and set model",
+	"  /providers         List available providers",
 	"  /model             Show active model",
 	"  /model <m>         Switch model for the current provider",
+	"  /models            List available models for the current provider",
 	"  /clear             Clear transcript and conversation history",
 	"  /exit              Exit the TUI",
 	"",
 	"Input:",
 	"  Enter          Send",
 	"  Ctrl+J         Insert a newline",
-	"  Ctrl+P         Cycle the side panel",
 	"  Esc            Clear the composer",
 ].join("\n");
 
